@@ -1,0 +1,5 @@
+Upstream: https://github.com/aibengineering/mine-ai-mcp
+Commit: 6cdd2bb2728820de5372a77fb649fcb31135b814
+License: MIT; see LICENSE.
+Actions restored from beat-the-game tag (commit de4fef3260424d973bf81d0eaa15ff1a2f73ecff).
+Local runtime-host.ts keeps the 1.21 enchantment dig-time fix.
