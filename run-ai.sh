@@ -95,7 +95,7 @@ for ((attempt = 0; attempt < 120; attempt++)); do
     env -u OPENAI_API_KEY -u CODEX_API_KEY -u OPENAI_BASE_URL \
       MINECRAFT_AI_GOAL="$session_goal" \
       codex --strict-config -m "$model" -c 'model_provider="openai"' \
-      "Играй в открытом мире Minecraft через MCP minecraft за MineAI. Текущая цель: $session_goal. Сначала вызови view_status, затем прочитай ai/playbook.md, ai/skills.md и активную верхнюю часть ai/progress.md. Не продолжай старые цели, если они не указаны в текущей цели. Работай коротким циклом: одна ближайшая цель, одно действие, дождаться результата, проверить, продолжить. Не перечисляй инструменты и не пиши длинные планы. Не повторяй один и тот же провал больше двух раз; меняй подход или запиши blocker. Используй готовые высокоуровневые действия и skill recipes, а маленькие inspect/control инструменты только для уточнения. Для движения за игроком используй follow_player; для охраны guard_player; для передачи предметов deliver_items; для ресурсов gather_resource; для базы/фермы/шахты waypoint; при застревании unstuck; при пространственной путанице scene_snapshot. Записывай в ai/progress.md только важные координаты, смерти, крупные успехи и blockers. Если лимит Codex исчерпан, остановись; не переключайся на платный API."
+      "MineAI goal: $session_goal"
     exit $?
   fi
   if ! kill -0 "$bot_pid" 2>/dev/null; then
