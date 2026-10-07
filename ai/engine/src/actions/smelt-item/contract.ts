@@ -6,7 +6,7 @@ import { registryNameSchema } from "../registry-name.js";
 
 export const SMELT_ITEM = "smelt_item" as const;
 export const SMELT_ITEM_DESCRIPTION =
-  "Smelt an exact carried input count using an explicit carried fuel. Supply an empty furnace's coordinates, or temporary_workstation=true to place and recover a carried furnace. Navigates into reach, follows observed furnace cook and fuel progress, and gives up only on fuel starvation, a true progress stall, or an outer safety limit. Residual slots are recovered with bounded waits and the result reports cooked output plus raw input and fuel actually recovered.";
+  "Smelt an exact carried input count using an explicit carried fuel. Supply an empty furnace's coordinates, or temporary_workstation=true to place and recover a carried furnace (requires a carried pickaxe). Supports efficient fuels including lava buckets, coal, charcoal, coal blocks, and wood. Navigates into reach, follows observed furnace cook and fuel progress, and gives up only on fuel starvation, a true progress stall, or an outer safety limit. Output is confirmed against both the furnace slot and player inventory; residual input and fuel are recovered with bounded waits.";
 
 export const smeltItemInputSchema = z
   .strictObject({

@@ -120,8 +120,10 @@ export interface MovementPolicy {
 }
 
 const DEFAULT_TICKS: Readonly<Record<MovementKind, number>> = Object.freeze({
-  walk: 5,
-  sprint: 4,
+  // Prefer sprint on safe supported ground. The old 5:4 price difference was
+  // too small to outweigh route dig/step penalties over long open stretches.
+  walk: 7,
+  sprint: 3,
   step_up: 8,
   pillar: 12,
   jump: 12,

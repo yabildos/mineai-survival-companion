@@ -4,7 +4,7 @@ import { registryNameSchema } from "../registry-name.js";
 
 export const BARTER = "barter" as const;
 export const BARTER_DESCRIPTION =
-  "Collect a requested item through loaded ground drops and gold offers to one explicitly selected adult piglin. Bartering for ender pearls is usually much slower than searching for and hunting endermen; prefer endermen for collecting pearls in the Nether in most cases. Collects existing desired drops first, including with gold_budget 0. Each native offer spends at most one gold ingot; unconfirmed offers reserve budget too. Success means additional desired items are carried, never merely that gold was lost. Random rewards are not guaranteed. Cancellation and reflex resumption retain the original target quantity and spending budget.";
+  "Collect a requested item through loaded ground drops and gold offers to one explicitly selected adult piglin. Collects existing desired drops first, including with gold_budget 0. Each native offer spends at most one gold ingot; unconfirmed offers reserve budget too. Success means additional desired items are carried, never merely that gold was lost. Random rewards are not guaranteed. Cancellation and reflex resumption retain the original target quantity and spending budget.";
 
 export const barterInputSchema = z.strictObject({
   piglin_id: z

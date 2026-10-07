@@ -43,6 +43,7 @@ import {
 import {
   CANCEL_FOREGROUND_ACTION,
 } from "./cancel-foreground-action/contract.js";
+import { CHEAT_RADAR, CHEAT_RADAR_DESCRIPTION, cheatRadarInputSchema } from "./cheat-radar/contract.js";
 import {
   COLLECT_BLOCK,
   COLLECT_BLOCK_DESCRIPTION,
@@ -77,6 +78,16 @@ import {
   LOCATE_STRONGHOLD_DESCRIPTION,
   locateStrongholdInputSchema,
 } from "./locate-stronghold/contract.js";
+import {
+  GET_PATHFINDER_STATUS,
+  GET_PATHFINDER_STATUS_DESCRIPTION,
+  getPathfinderStatusInputSchema,
+} from "./get-pathfinder-status/contract.js";
+import { INSPECT_FURNACE, INSPECT_FURNACE_DESCRIPTION, inspectFurnaceInputSchema } from "./inspect-furnace/contract.js";
+import { INSPECT_VILLAGER, INSPECT_VILLAGER_DESCRIPTION, inspectVillagerInputSchema } from "./inspect-villager/contract.js";
+import { LOADOUT_MANAGER, LOADOUT_MANAGER_DESCRIPTION, loadoutManagerInputSchema } from "./loadout-manager/contract.js";
+import { MINING_ASSISTANT, MINING_ASSISTANT_DESCRIPTION, miningAssistantInputSchema } from "./mining-assistant/contract.js";
+import { MOVE_SLOT, MOVE_SLOT_DESCRIPTION, moveSlotInputSchema } from "./move-slot/contract.js";
 import { NAVIGATE, NAVIGATE_DESCRIPTION, navigateInputSchema } from "./navigate/contract.js";
 import { ENTER_END_PORTAL, ENTER_END_PORTAL_DESCRIPTION, ENTER_NETHER_PORTAL, ENTER_NETHER_PORTAL_DESCRIPTION, enterEndPortalInputSchema, enterNetherPortalInputSchema } from "./portal-entry/contract.js";
 import {
@@ -90,6 +101,7 @@ import {
   prepareDragonPerchInputSchema,
 } from "./prepare-dragon-perch/contract.js";
 import { PICK_UP_ITEMS, PICK_UP_ITEMS_DESCRIPTION, pickUpItemsInputSchema } from "./pick-up-items/contract.js";
+import { PROSPECT_ORE, PROSPECT_ORE_DESCRIPTION, prospectOreInputSchema } from "./prospect-ore/contract.js";
 import {
   QUERY_BOT_DATA,
   QUERY_BOT_DATA_DESCRIPTION,
@@ -106,6 +118,12 @@ import {
   SEND_MESSAGE_DESCRIPTION,
   sendMessageInputSchema,
 } from "./send-message/contract.js";
+import { SKILL_LIBRARY, SKILL_LIBRARY_DESCRIPTION, skillLibraryInputSchema } from "./skill-library/contract.js";
+import {
+  SCAN_LOADED_BLOCKS,
+  SCAN_LOADED_BLOCKS_DESCRIPTION,
+  scanLoadedBlocksInputSchema,
+} from "./scan-loaded-blocks/contract.js";
 import { SLEEP, SLEEP_DESCRIPTION, sleepInputSchema } from "./sleep/contract.js";
 import { SMELT_ITEM, SMELT_ITEM_DESCRIPTION, smeltItemInputSchema } from "./smelt-item/contract.js";
 import { USE_BUCKET, USE_BUCKET_DESCRIPTION, useBucketInputSchema } from "./use-bucket/contract.js";
@@ -114,6 +132,9 @@ import {
   USE_CONTAINER_DESCRIPTION,
   useContainerInputSchema,
 } from "./use-container/contract.js";
+import { UNEQUIP, UNEQUIP_DESCRIPTION, unequipInputSchema } from "./unequip/contract.js";
+import { TASK_JOURNAL, TASK_JOURNAL_DESCRIPTION, taskJournalInputSchema } from "./task-journal/contract.js";
+import { TRAIL_MEMORY, TRAIL_MEMORY_DESCRIPTION, trailMemoryInputSchema } from "./trail-memory/contract.js";
 import {
   VIEW_BLOCKS,
   VIEW_BLOCKS_DESCRIPTION,
@@ -158,6 +179,7 @@ export function describeActionTools(): readonly ActionToolDescription[] {
     ),
     tool("wait_for_action", WAIT_FOR_ACTION_DESCRIPTION, waitForActionInputSchema, { foreground: false }),
     tool(BUILD_STRUCTURE, BUILD_STRUCTURE_DESCRIPTION, buildStructureInputSchema),
+    tool(CHEAT_RADAR, CHEAT_RADAR_DESCRIPTION, cheatRadarInputSchema, { foreground: false }),
     tool(COLLECT_BLOCK, COLLECT_BLOCK_DESCRIPTION, collectBlockInputSchema),
     tool(CRAFT_ITEM, CRAFT_ITEM_DESCRIPTION, craftItemInputSchema),
     tool(SET_SURVIVAL_POLICY, SET_SURVIVAL_POLICY_DESCRIPTION, setSurvivalPolicyInputSchema, { foreground: false }),
@@ -167,7 +189,13 @@ export function describeActionTools(): readonly ActionToolDescription[] {
     tool(EXPLORE_FRONTIER, EXPLORE_FRONTIER_DESCRIPTION, exploreFrontierInputSchema),
     tool(COLLECT_MOB_DROP, COLLECT_MOB_DROP_DESCRIPTION, huntMobInputSchema),
     tool(ACTIVATE_PORTAL, ACTIVATE_PORTAL_DESCRIPTION, activatePortalInputSchema),
+    tool(INSPECT_FURNACE, INSPECT_FURNACE_DESCRIPTION, inspectFurnaceInputSchema, { foreground: false }),
+    tool(INSPECT_VILLAGER, INSPECT_VILLAGER_DESCRIPTION, inspectVillagerInputSchema, { foreground: false }),
     tool(LOCATE_STRONGHOLD, LOCATE_STRONGHOLD_DESCRIPTION, locateStrongholdInputSchema),
+    tool(LOADOUT_MANAGER, LOADOUT_MANAGER_DESCRIPTION, loadoutManagerInputSchema, { foreground: false }),
+    tool(GET_PATHFINDER_STATUS, GET_PATHFINDER_STATUS_DESCRIPTION, getPathfinderStatusInputSchema, { foreground: false }),
+    tool(MINING_ASSISTANT, MINING_ASSISTANT_DESCRIPTION, miningAssistantInputSchema),
+    tool(MOVE_SLOT, MOVE_SLOT_DESCRIPTION, moveSlotInputSchema),
     tool(ENTER_NETHER_PORTAL, ENTER_NETHER_PORTAL_DESCRIPTION, enterNetherPortalInputSchema),
     tool(ENTER_END_PORTAL, ENTER_END_PORTAL_DESCRIPTION, enterEndPortalInputSchema),
     tool(NAVIGATE, NAVIGATE_DESCRIPTION, navigateInputSchema),
@@ -177,14 +205,20 @@ export function describeActionTools(): readonly ActionToolDescription[] {
     tool(PREPARE_DRAGON_PERCH, PREPARE_DRAGON_PERCH_DESCRIPTION, prepareDragonPerchInputSchema),
     tool(SHOOT_DRAGON, SHOOT_DRAGON_DESCRIPTION, shootDragonInputSchema),
     tool(PICK_UP_ITEMS, PICK_UP_ITEMS_DESCRIPTION, pickUpItemsInputSchema),
+    tool(PROSPECT_ORE, PROSPECT_ORE_DESCRIPTION, prospectOreInputSchema, { foreground: false }),
     tool(RAW_ACTION, RAW_ACTION_DESCRIPTION, rawActionInputSchema),
     tool(QUERY_BOT_DATA, QUERY_BOT_DATA_DESCRIPTION, queryBotDataInputSchema, { foreground: false }),
     tool(READ_RECENT_EVENTS, READ_RECENT_EVENTS_DESCRIPTION, readRecentEventsInputSchema, { foreground: false }),
+    tool(SCAN_LOADED_BLOCKS, SCAN_LOADED_BLOCKS_DESCRIPTION, scanLoadedBlocksInputSchema, { foreground: false }),
     tool(SEND_MESSAGE, SEND_MESSAGE_DESCRIPTION, sendMessageInputSchema),
+    tool(SKILL_LIBRARY, SKILL_LIBRARY_DESCRIPTION, skillLibraryInputSchema),
     tool(SLEEP, SLEEP_DESCRIPTION, sleepInputSchema),
     tool(SMELT_ITEM, SMELT_ITEM_DESCRIPTION, smeltItemInputSchema),
+    tool(UNEQUIP, UNEQUIP_DESCRIPTION, unequipInputSchema),
     tool(USE_BUCKET, USE_BUCKET_DESCRIPTION, useBucketInputSchema),
     tool(USE_CONTAINER, USE_CONTAINER_DESCRIPTION, useContainerInputSchema),
+    tool(TASK_JOURNAL, TASK_JOURNAL_DESCRIPTION, taskJournalInputSchema),
+    tool(TRAIL_MEMORY, TRAIL_MEMORY_DESCRIPTION, trailMemoryInputSchema),
     tool(
       VIEW_CRAFTING_REQUIREMENTS,
       VIEW_CRAFTING_REQUIREMENTS_DESCRIPTION,

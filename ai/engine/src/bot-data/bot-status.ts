@@ -1,8 +1,12 @@
+import { createRequire } from "node:module";
 import type { Bot } from "mineflayer";
 import type { Item } from "prismarine-item";
 import { chunkPosition } from "../world/chunks.js";
 import type { SqlBotData } from "./sql-bot-data.js";
 import { snapshotTools, type ToolSnapshot } from "../world/tool-tiers.js";
+
+type ItemLoader = (registry: Bot["registry"]) => typeof Item;
+const loadItem = createRequire(import.meta.url)("prismarine-item") as ItemLoader;
 
 /** Player inventory window slots that hold worn or off-hand equipment. */
 export const EQUIPMENT_SLOTS = Object.freeze({ head: 5, torso: 6, legs: 7, feet: 8, "off-hand": 45 });
@@ -12,6 +16,73 @@ export type InventoryLocation = "main" | "hotbar" | EquipmentSlot;
 /** Main inventory plus hotbar: the slots `bot.inventory.items()` reports. */
 export const CARRIED_SLOT_COUNT = 36;
 const HOTBAR_START = 36;
+interface LocalEquipmentSnapshot {
+  readonly items: Map<number, Item | null>;
+  mainHandSlot: number | null;
+}
+const equipmentSnapshots = new WeakMap<Bot, LocalEquipmentSnapshot>();
+
+function updateInventorySlot(bot: Bot, slot: number, item: Item | null): void {
+  // prismarine-windows accepts null in its implementation, but its .d.ts has
+  // not caught up. Keep the cast local to this compatibility boundary.
+  bot.inventory.updateSlot(slot, item as Item);
+}
+
+function playerInventorySlotForEquipment(slot: number, heldSlot: number): number | undefined {
+  switch (slot) {
+    case 0: return heldSlot;
+    case 1: return 45;
+    case 2: return 8;
+    case 3: return 7;
+    case 4: return 6;
+    case 5: return 5;
+    default: return undefined;
+  }
+}
+
+/**
+ * Mineflayer also receives the server's rendered equipment for the local
+ * player. Keep that stream because inventory-window updates can lag behind it
+ * (and the local entity's equipment accessor is backed by those same slots).
+ */
+export function observeEquipmentPackets(bot: Bot): () => void {
+  const Item = loadItem(bot.registry);
+  const equipment: LocalEquipmentSnapshot = { items: new Map(), mainHandSlot: null };
+  const onEquipment = (packet: {
+    entityId: number;
+    slot?: number;
+    item?: object | null;
+    equipments?: Array<{ slot: number; item: object | null }>;
+  }) => {
+    if (packet.entityId !== bot.entity?.id) return;
+    const entries = packet.equipments ?? [{ slot: packet.slot, item: packet.item }];
+    for (const entry of entries) {
+      if (entry.slot === undefined) continue;
+      const item = entry.item ? Item.fromNotch(entry.item) : null;
+      equipment.items.set(entry.slot, item);
+      if (entry.slot === 0) equipment.mainHandSlot = HOTBAR_START + (bot.quickBarSlot ?? 0);
+      const playerSlot = playerInventorySlotForEquipment(entry.slot, HOTBAR_START + (bot.quickBarSlot ?? 0));
+      if (playerSlot === undefined || !bot.inventory) continue;
+      if (item) item.slot = playerSlot;
+      // Keep Mineflayer's player inventory in sync with what the server says
+      // the local entity is actually wearing or holding. Several engine
+      // capabilities read these slots directly.
+      updateInventorySlot(bot, playerSlot, item);
+    }
+  };
+  const onRespawn = () => {
+    equipment.items.clear();
+    equipment.mainHandSlot = null;
+  };
+  bot._client?.on("entity_equipment", onEquipment);
+  bot.on("respawn", onRespawn);
+  equipmentSnapshots.set(bot, equipment);
+  return () => {
+    bot._client?.off("entity_equipment", onEquipment);
+    bot.off("respawn", onRespawn);
+    equipmentSnapshots.delete(bot);
+  };
+}
 
 export interface InventoryStack {
   readonly slot: number;
@@ -110,7 +181,44 @@ export function snapshotInventory(bot: Bot): InventoryStack[] {
         ]
       : [];
   });
-  return [...worn, ...carried].sort((left, right) => left.slot - right.slot);
+  const stacks = new Map([...worn, ...carried].map((stack) => [stack.slot, stack]));
+  const observedEquipment = equipmentSnapshots.get(bot);
+  if (observedEquipment) {
+    const heldSlot = HOTBAR_START + (bot.quickBarSlot ?? 0);
+    for (const equipmentSlot of [0, 1, 2, 3, 4, 5]) {
+      if (!observedEquipment.items.has(equipmentSlot)) continue;
+      const playerSlot = equipmentSlot === 0
+        ? observedEquipment.mainHandSlot
+        : playerInventorySlotForEquipment(equipmentSlot, heldSlot);
+      if (playerSlot === null || playerSlot === undefined) continue;
+      if (equipmentSlot === 0 && playerSlot !== heldSlot) continue;
+      const item = observedEquipment.items.get(equipmentSlot);
+      stacks.delete(playerSlot);
+      if (!item) continue;
+      const location = playerSlot === 45
+        ? "off-hand"
+        : playerSlot === 5
+          ? "head"
+          : playerSlot === 6
+            ? "torso"
+            : playerSlot === 7
+              ? "legs"
+              : playerSlot === 8
+                ? "feet"
+                : playerSlot >= HOTBAR_START
+                  ? "hotbar"
+                  : "main";
+      stacks.set(playerSlot, {
+        slot: playerSlot,
+        location,
+        name: item.name,
+        count: item.count,
+        held: playerSlot === heldSlot,
+        durability: itemDurability(item),
+      });
+    }
+  }
+  return [...stacks.values()].sort((left, right) => left.slot - right.slot);
 }
 
 function itemDurability(item: Item): InventoryStack["durability"] {

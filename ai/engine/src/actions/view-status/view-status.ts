@@ -28,6 +28,7 @@ import {
 } from "../../world/end-fight.js";
 import { dayPhase, ticksToMinutes, ticksUntilDay, ticksUntilNight } from "../../world/index.js";
 import { observeMobAge } from "../../world/mob-age.js";
+import { rememberPlayerLocationInData } from "../../world/player-locations.js";
 import { defineAction } from "../action.js";
 import {
   DRAGON_PHASE_NAMES,
@@ -108,7 +109,7 @@ export function observeLiveSituation(
       stacks: [...snapshot.inventory],
     },
     tools: snapshot.tools!,
-    nearby: observeNearby(bot),
+    nearby: observeNearby(bot, data),
     endFight: {
       dragons: Object.values(bot.entities)
         .filter((e) => e.isValid && e.name === "ender_dragon")
@@ -209,11 +210,11 @@ function headingDegrees(yaw: number): number {
   return round((((-yaw * 180) / Math.PI) % 360) + 360, 1) % 360;
 }
 
-function observeNearby(bot: Bot): LiveNearby {
+function observeNearby(bot: Bot, data: SqlBotData): LiveNearby {
   const origin = bot.entity?.position ?? { x: 0, y: 0, z: 0 };
   return {
     rangeBlocks: HOSTILE_OBSERVATION_RANGE,
-    players: observePlayers(bot, origin),
+    players: observePlayers(bot, data, origin),
     hostiles: observeHostileContact(bot).map((threat) => ({
       name: threat.name,
       distance: round(threat.distance, 1),
@@ -224,13 +225,14 @@ function observeNearby(bot: Bot): LiveNearby {
   };
 }
 
-function observePlayers(bot: Bot, origin: Position3): LiveNearby["players"] {
+function observePlayers(bot: Bot, data: SqlBotData, origin: Position3): LiveNearby["players"] {
   return Object.values(bot.players ?? {})
     .filter((player) => player.username && player.username !== bot.username)
     .sort((left, right) => left.username.localeCompare(right.username))
     .map((player) => {
       const entity = player.entity as typeof player.entity | null | undefined;
       if (!entity?.position) return { username: player.username, distance: null, position: null };
+      rememberPlayerLocationInData(data, player.username, entity.position, bot.game.dimension);
       return {
         username: player.username,
         distance: distanceBetween(origin, entity.position),

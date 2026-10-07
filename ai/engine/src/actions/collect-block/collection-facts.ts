@@ -16,7 +16,13 @@ const ORDINARY_BREAK_DROP_OVERRIDES: Readonly<Record<string, string>> = {
 };
 
 export function blockMatchesSelector(blockName: string, selector: string): boolean {
-  if (selector === "log" || selector === "logs") return blockName.endsWith("_log");
+  if (selector === "log" || selector === "logs") return blockName.endsWith("_log") || blockName.endsWith("_stem");
+  if (selector === "wood" || selector === "woods")
+    return blockName.endsWith("_log") || blockName.endsWith("_wood") || blockName.endsWith("_stem") || blockName.endsWith("_hyphae");
+  if (selector === "mushroom_tree" || selector === "mushroom_trees")
+    return blockName === "mushroom_stem" || blockName === "red_mushroom_block" || blockName === "brown_mushroom_block";
+  if (selector === "mushroom_block" || selector === "mushroom_blocks")
+    return blockName === "red_mushroom_block" || blockName === "brown_mushroom_block";
   return blockName === selector || (selector.endsWith("_ore") && blockName === `deepslate_${selector}`);
 }
 

@@ -54,7 +54,7 @@ function abortablePause(milliseconds: number, signal?: AbortSignal): Promise<voi
   });
 }
 
-function productionDependencies(navigate: Navigate): SmeltItemDependencies {
+export function productionDependencies(navigate: Navigate): SmeltItemDependencies {
   return {
     createMovements,
     navigate,
@@ -67,9 +67,13 @@ function productionDependencies(navigate: Navigate): SmeltItemDependencies {
 function fuelCapacity(name: string): number {
   if (name === "coal" || name === "charcoal") return 8;
   if (name === "coal_block") return 80;
+  if (name === "lava_bucket") return 100;
   if (name === "dried_kelp_block") return 20;
   if (name === "blaze_rod") return 12;
-  if (name.endsWith("_planks") || name.endsWith("_log") || name.endsWith("_wood")) return 1.5;
+  if (
+    name.endsWith("_planks") || name.endsWith("_log") || name.endsWith("_wood") ||
+    name.endsWith("_stem") || name.endsWith("_hyphae")
+  ) return 1.5;
   if (name === "stick") return 0.5;
   return 0;
 }
@@ -113,7 +117,14 @@ function evidence(
 interface Recovery {
   readonly input: number;
   readonly fuel: number;
-  readonly output: { readonly name: string; readonly count: number; readonly inventoryBefore: number } | null;
+  readonly output: {
+    readonly name: string;
+    /** How much the furnace slot reported moving before the window closed. */
+    readonly count: number;
+    /** Original output stack size, used to reconcile late inventory packets. */
+    readonly expectedCount: number;
+    readonly inventoryBefore: number;
+  } | null;
   readonly errors: readonly string[];
 }
 
@@ -148,11 +159,15 @@ async function takeOutputOnce(bot: Bot, window: FurnaceWindow) {
   // single shift-click is safe here: cooking itself cannot repeat on click.
   await bot.clickWindow(item.slot, 0, 1);
   // While a container is open, Mineflayer's player inventory can lag behind
-  // the window packet even after the server accepted this click. The furnace
-  // output slot is the direct witness for this one-slot transaction.
+  // the window packet even after the server accepted this click. Watch both
+  // sides of the transfer: the furnace output slot and the carried inventory.
   const removed = await waitForSignal(
-    () => Math.max(0, item.count - (window.outputItem()?.count ?? 0)),
-    window,
+    () => {
+      const slotRemoved = Math.max(0, item.count - (window.outputItem()?.count ?? 0));
+      const inventoryAdded = Math.max(0, carriedCount(bot, item.name) - inventoryBefore);
+      return Math.min(item.count, Math.max(slotRemoved, inventoryAdded));
+    },
+    [window, bot.inventory],
     "updateSlot",
     { timeoutMs: SLOT_RECOVERY_MS },
   );
@@ -189,9 +204,14 @@ async function recover(bot: Bot, window: FurnaceWindow): Promise<Recovery> {
       if (take === "takeOutput") {
         const taken = await boundedTake(() => takeOutputOnce(bot, window), take);
         if (!taken) continue;
-        output = { name: taken.name, count: taken.count, inventoryBefore: taken.inventoryBefore };
+        output = {
+          name: taken.name,
+          count: taken.count,
+          expectedCount: slotItem.count,
+          inventoryBefore: taken.inventoryBefore,
+        };
         if (!taken.confirmed) {
-          errors.push(`Inventory did not confirm furnace output ${taken.name}.`);
+          errors.push(`Furnace output transfer was not observed for ${taken.name} x${slotItem.count}.`);
           break;
         }
       } else {
@@ -290,6 +310,14 @@ export async function smeltItem(
   dependencies: SmeltItemDependencies,
 ): Promise<SmeltItemResult> {
   if (request.temporaryWorkstation !== true) return smeltInFurnace(bot, request, context, dependencies);
+  if (!bot.inventory.items().some((item) => item.name.endsWith("_pickaxe"))) {
+    const before = { input: carriedCount(bot, request.itemName), fuel: carriedCount(bot, request.fuelItemName) };
+    return {
+      status: "failed",
+      error: "[FURNACE_PICKAXE_REQUIRED] Carry a pickaxe so the temporary furnace can be recovered after smelting.",
+      smelt: evidence(bot, request, before),
+    };
+  }
   return useTemporaryWorkstation(
     bot,
     "furnace",
@@ -454,13 +482,25 @@ async function smeltInFurnace(
     const outputAfter = await settleInventoryMinimum(
       bot,
       outputItem,
-      recovery.output.inventoryBefore + produced,
+      recovery.output.inventoryBefore + recovery.output.expectedCount,
       { timeoutMs: SLOT_RECOVERY_MS, signal: context.signal },
     );
-    if (!outputAfter.confirmed) {
+    // Furnace output clicks can be accepted before Mineflayer publishes the
+    // corresponding window update. Reconcile against the player inventory
+    // after closing the window, which is the authoritative receipt for a
+    // shift-clicked output stack.
+    produced = Math.min(
+      recovery.output.expectedCount,
+      Math.max(produced, outputAfter.count - recovery.output.inventoryBefore),
+    );
+    const outputConfirmed = produced >= recovery.output.expectedCount;
+    const outputErrors = recovery.errors.filter((error) => !error.startsWith("Furnace output transfer was not observed"));
+    if (outputConfirmed) {
+      recovery = { ...recovery, errors: outputErrors };
+    } else {
       recovery = {
         ...recovery,
-        errors: [...recovery.errors, `Player inventory did not confirm furnace output ${outputItem} x${produced} after close.`],
+        errors: [...outputErrors, `Player inventory confirmed furnace output ${outputItem} x${produced}/${recovery.output.expectedCount} after close.`],
       };
     }
   }

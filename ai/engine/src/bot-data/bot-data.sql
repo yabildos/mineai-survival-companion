@@ -18,6 +18,88 @@ CREATE TABLE IF NOT EXISTS notes (
 
 CREATE INDEX IF NOT EXISTS notes_bot_id_note_id ON notes (bot_id, note_id DESC);
 
+CREATE TABLE IF NOT EXISTS task_plans (
+  plan_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  bot_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  goal TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('active', 'paused', 'completed', 'failed', 'abandoned')),
+  source TEXT NOT NULL CHECK (source IN ('user', 'planner', 'executor_verified', 'observed')),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+) STRICT;
+
+CREATE INDEX IF NOT EXISTS task_plans_by_bot_status ON task_plans (bot_id, status, plan_id DESC);
+
+CREATE TABLE IF NOT EXISTS task_steps (
+  step_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  plan_id INTEGER NOT NULL,
+  step_index INTEGER NOT NULL CHECK (step_index >= 0),
+  description TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('pending', 'active', 'completed', 'failed', 'skipped')),
+  tool_hint TEXT,
+  evidence_source TEXT NOT NULL CHECK (evidence_source IN ('user', 'planner', 'executor_verified', 'observed')),
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY(plan_id) REFERENCES task_plans(plan_id) ON DELETE CASCADE
+) STRICT;
+
+CREATE INDEX IF NOT EXISTS task_steps_by_plan ON task_steps (plan_id, step_index);
+
+CREATE TABLE IF NOT EXISTS task_failures (
+  failure_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  plan_id INTEGER,
+  step_id INTEGER,
+  bot_id TEXT NOT NULL,
+  failure_type TEXT NOT NULL CHECK (failure_type IN ('no_path', 'no_tool', 'tool_broke', 'inventory_full', 'player_unloaded', 'unsafe_lava', 'window_failed', 'stuck_loop', 'timeout', 'missing_resource', 'unknown')),
+  summary TEXT NOT NULL,
+  recovery TEXT NOT NULL,
+  source TEXT NOT NULL CHECK (source IN ('executor_verified', 'observed', 'planner', 'user')),
+  recorded_at TEXT NOT NULL,
+  FOREIGN KEY(plan_id) REFERENCES task_plans(plan_id) ON DELETE SET NULL,
+  FOREIGN KEY(step_id) REFERENCES task_steps(step_id) ON DELETE SET NULL
+) STRICT;
+
+CREATE TABLE IF NOT EXISTS skills (
+  skill_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  bot_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL,
+  tags_json TEXT NOT NULL CHECK (json_valid(tags_json)),
+  tool_sequence_json TEXT NOT NULL CHECK (json_valid(tool_sequence_json)),
+  success_count INTEGER NOT NULL DEFAULT 0 CHECK (success_count >= 0),
+  failure_count INTEGER NOT NULL DEFAULT 0 CHECK (failure_count >= 0),
+  source TEXT NOT NULL CHECK (source IN ('executor_verified', 'planner', 'user')),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE(bot_id, name)
+) STRICT;
+
+CREATE INDEX IF NOT EXISTS skills_by_bot_updated ON skills (bot_id, updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS trail_marks (
+  mark_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  bot_id TEXT NOT NULL,
+  label TEXT NOT NULL,
+  kind TEXT NOT NULL CHECK (kind IN ('breadcrumb', 'hazard', 'exit', 'resource', 'death', 'stuck')),
+  dimension TEXT NOT NULL,
+  x REAL NOT NULL,
+  y REAL NOT NULL,
+  z REAL NOT NULL,
+  note TEXT NOT NULL,
+  created_at TEXT NOT NULL
+) STRICT;
+
+CREATE INDEX IF NOT EXISTS trail_marks_by_bot ON trail_marks (bot_id, mark_id DESC);
+
+CREATE TABLE IF NOT EXISTS player_locations (
+  username TEXT PRIMARY KEY COLLATE NOCASE,
+  dimension TEXT NOT NULL,
+  x REAL NOT NULL,
+  y REAL NOT NULL,
+  z REAL NOT NULL,
+  seen_at TEXT NOT NULL
+) STRICT;
+
 CREATE TABLE IF NOT EXISTS stronghold_throws (
   throw_id TEXT PRIMARY KEY,
   bot_id TEXT NOT NULL,

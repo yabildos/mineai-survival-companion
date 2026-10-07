@@ -30,6 +30,7 @@ import { createDiscardedItems, type DiscardedItems } from "../../world/discarded
 import { droppedItemName } from "../../world/item-pickup.js";
 import { useItemAt } from "../../world/item-use.js";
 import { observeToolTierLoss } from "../../world/tool-loss.js";
+import { snapshotTools } from "../../world/tool-tiers.js";
 import { carriedSolidBlocks, placeSolidBlockInto } from "../../world/placement.js";
 import { defineAction, type ActionContext } from "../action.js";
 import { blockMatchesSelector, expectedDropName, inventoryCounts, inventoryGains } from "./collection-facts.js";
@@ -142,14 +143,42 @@ function exactTargetStop(
   request: CollectBlockRequest,
   canMine: (block: MinecraftBlock) => MineTargetDecision,
 ): string | null {
-  if (!request.exactTarget) return null;
-  const target = asVec3(request.exactTarget).floored();
-  const block = bot.blockAt(target);
-  if (!block || !blockMatchesSelector(block.name, request.selector)) {
-    return outcomes.targetMismatch(request.exactTarget, block?.name ?? "unloaded", request.selector);
+  const requested = request.exactTargets ?? (request.exactTarget ? [request.exactTarget] : null);
+  if (!requested) return null;
+  for (const position of requested) {
+    const target = asVec3(position).floored();
+    const block = bot.blockAt(target);
+    if (!block || !blockMatchesSelector(block.name, request.selector)) {
+      return outcomes.targetMismatch(position, block?.name ?? "unloaded", request.selector);
+    }
+    const decision = canMine(block);
+    if (decision.kind !== "mineable") return outcomes.unmineable(block.name, block.position, decision.reason);
   }
-  const decision = canMine(block);
-  return decision.kind === "mineable" ? null : outcomes.unmineable(block.name, block.position, decision.reason);
+  return null;
+}
+
+function miningSafetyStop(bot: Bot, request: CollectBlockRequest): string | null {
+  if (!blockMatchesSelector("diamond_ore", request.selector)) return null;
+  const pickaxe = snapshotTools(bot).tools.find((tool) => tool.class === "pickaxe");
+  if (!pickaxe?.item) return outcomes.miningSafety("No pickaxe is carried; do not start diamond mining.");
+  if (pickaxe.tier !== "iron" && pickaxe.tier !== "diamond" && pickaxe.tier !== "netherite") {
+    return outcomes.miningSafety(`${pickaxe.item} cannot safely harvest diamond ore.`);
+  }
+  if (pickaxe.durabilityLeft !== null) {
+    const reserve = 32;
+    const needed = request.requested + reserve;
+    if (pickaxe.durabilityLeft < needed) {
+      return outcomes.miningSafety(
+        `${pickaxe.item} has ${pickaxe.durabilityLeft} durability left; need at least ${needed} for ${request.requested} diamond ore plus an exit reserve.`,
+      );
+    }
+  }
+  if (request.requested > 32) {
+    return outcomes.miningSafety(
+      `Requested ${request.requested} diamond ore in one action. Split deep mining into batches of 32 or fewer so the bot can reassess pickaxe durability and exit route.`,
+    );
+  }
+  return null;
 }
 
 // ── Action execution ──────────────────────────────────────────────────────────────────────
@@ -212,12 +241,13 @@ function beginCollectBlock(
         navigation.world,
         buildingBlocks().reduce((count, item) => count + item.count, 0),
       );
-    const stop = inventoryStop(bot, request, collectable) ?? exactTargetStop(bot, request, canMine);
+    const stop = miningSafetyStop(bot, request) ?? inventoryStop(bot, request, collectable) ?? exactTargetStop(bot, request, canMine);
     if (stop) {
       return settle(bot, request, inventoryBefore, collectable, start, { status: "stopped", broken, reason: stop });
     }
 
     const exactCell = request.exactTarget ? asVec3(request.exactTarget).floored() : null;
+    const exactCells = request.exactTargets?.map((target) => asVec3(target).floored());
 
     // Admission can leave only part of the requested quantity free. Once pickups
     // fill that space, release the route instead of waiting at a live drop until
@@ -247,6 +277,7 @@ function beginCollectBlock(
         canMine,
         matchingStateIds: target.blockStateIds,
         ...(exactCell !== null && { exactTarget: exactCell }),
+        ...(exactCells !== undefined && { exactTargets: exactCells }),
         collects: (itemName) => collectable.has(itemName),
         isSatisfied: () => gained() >= request.requested,
         observedInventoryGain: gained,

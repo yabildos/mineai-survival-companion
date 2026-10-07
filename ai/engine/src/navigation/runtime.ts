@@ -19,6 +19,7 @@ import type { WorldView } from "./world/world.js";
 import type { MovementPolicy } from "./movements/policy.js";
 import { runNavigation, type Navigate, type NavigationResult } from "./navigate.js";
 import { createNavigator } from "./orchestration/navigator.js";
+import type { NavigationStatus } from "./orchestration/outcome.js";
 import type { StepFieldProvider } from "./step-field.js";
 import type { NavigationEvent, TelemetrySink } from "./telemetry/index.js";
 
@@ -45,6 +46,8 @@ export interface NavigationRuntime extends AsyncDisposable {
   setStepFieldProvider(provider: StepFieldProvider): void;
   /** Whether a route currently owns the bot. */
   readonly active: boolean;
+  /** Current pathfinder phase, if a route is active. */
+  readonly status: NavigationStatus | null;
   cancel(reason?: string): void;
   /** An admitted recovery owner will steer the airborne body after this route releases its controls. */
   releaseForTakeover(reason: string): void;
@@ -248,6 +251,9 @@ export function createNavigationRuntime(bot: Bot): NavigationRuntime {
     setStepFieldProvider: (provider) => navigator.setStepFieldProvider(provider),
     get active() {
       return diving.active || navigator.active !== null;
+    },
+    get status() {
+      return navigator.active;
     },
     onEvent(listener) {
       listeners.add(listener);

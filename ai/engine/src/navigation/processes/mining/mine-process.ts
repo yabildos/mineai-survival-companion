@@ -70,6 +70,9 @@ const GOAL_UPDATE_MS = 250;
  * pinned in its own poured water stopped forty such routes in a row.
  */
 const MAX_FRUITLESS_STOPS = 5;
+/** Do not let an empty resource search walk the bot indefinitely away from its starting area. */
+const MAX_MINE_EXPLORATION_DISTANCE = 128;
+const MAX_MINE_EXPLORATION_MS = 90_000;
 
 /**
  * How many of a pool's sources its goal offers as lips to stand beside. The
@@ -174,6 +177,8 @@ export interface MineRequest {
    * `matches` on palette blocks with null positions.
    */
   readonly exactTarget?: BlockPosition;
+  /** Optional finite target set; when present the scan never expands to other matching blocks. */
+  readonly exactTargets?: readonly BlockPosition[];
   /** Which dropped item names are worth walking to. */
   readonly collects: (itemName: string) => boolean;
   /**
@@ -325,8 +330,10 @@ function scan(bot: Bot, request: MineRequest, blacklist: MineBlacklist): MineSca
   // A named cell must not disappear behind the general scan's nearest matches.
   // Otherwise consider every loaded match, as the public block view does:
   // a known target outside a local radius is still a target, not a reason to explore.
-  const positions = request.exactTarget
-    ? [request.exactTarget]
+  const positions = request.exactTargets
+    ? request.exactTargets
+    : request.exactTarget
+      ? [request.exactTarget]
     : findLoadedBlockPositions(bot, {
         center: feet,
         stateIds: request.matchingStateIds,
@@ -350,7 +357,7 @@ function scan(bot: Bot, request: MineRequest, blacklist: MineBlacklist): MineSca
       routeMayBreak: decision.routeMayBreak,
       excludedStances: blacklist.blockStances.get(key) ?? new Set(),
     });
-    if (blocks.length === MAX_MINE_TARGETS) break;
+    if (!request.exactTargets && blocks.length === MAX_MINE_TARGETS) break;
   }
 
   const drops = Object.values(bot.entities ?? {})
@@ -370,7 +377,7 @@ function scan(bot: Bot, request: MineRequest, blacklist: MineBlacklist): MineSca
       return true;
     })
     .sort((left, right) => feet.distanceSquared(asVec3(left.position)) - feet.distanceSquared(asVec3(right.position)))
-    .slice(0, MAX_MINE_TARGETS);
+    .slice(0, request.exactTargets?.length ?? MAX_MINE_TARGETS);
   return { targets, rejections };
 }
 
@@ -673,6 +680,8 @@ async function recoverWaterInReach(
  * what the targets are.
  */
 class MineTargeting {
+  #explorationStartedAtMs: number | null = null;
+  #explorationOrigin: Vec3 | null = null;
   #water: WaterRecovery = { kind: "none" };
   readonly #blockBlacklist = new Set<string>();
   readonly #blockStances = new Map<string, ReadonlySet<string>>();
@@ -715,7 +724,9 @@ class MineTargeting {
     // Incidental drops can satisfy a quantity, but a named block must also have
     // been observed removed during this run.
     const exact = this.request.exactTarget;
-    return exact === undefined || this.broken.some((position) => cellKey(position) === cellKey(exact));
+    if (exact !== undefined) return this.broken.some((position) => cellKey(position) === cellKey(exact));
+    const exactTargets = this.request.exactTargets;
+    return exactTargets === undefined || exactTargets.every((target) => this.broken.some((position) => cellKey(position) === cellKey(target)));
   }
 
   get waterFailure(): string | null {
@@ -919,9 +930,29 @@ class MineTargeting {
     if (this.#water.kind === "pending") this.#targets = [this.#water.target];
     if (this.#water.kind === "failed") this.#targets = [];
     this.#goal = this.#targets.length === 0 ? null : anyGoal(this.#targets.map((target) => coalesce(this.bot, target, this.request.movements)));
-    if (this.#targets.length === 0 && this.request.explore && this.#branchGoal === null) {
+    if (this.#targets.length > 0) {
+      this.#branchGoal = null;
+      this.#explorationOrigin = null;
+      this.#explorationStartedAtMs = null;
+    }
+    if (this.#targets.length === 0 && this.request.explore && this.#branchGoal !== null && this.#branchFailure === null) {
+      const origin = this.#explorationOrigin ?? this.bot.entity.position;
+      const distance = Math.hypot(
+        this.bot.entity.position.x - origin.x,
+        this.bot.entity.position.z - origin.z,
+      );
+      const elapsed = Date.now() - (this.#explorationStartedAtMs ?? Date.now());
+      if (distance >= MAX_MINE_EXPLORATION_DISTANCE || elapsed >= MAX_MINE_EXPLORATION_MS) {
+        this.failExploration(
+          `No matching target found within ${Math.round(distance)} horizontal blocks or ${Math.round(elapsed / 1000)} seconds; exploration is bounded to ${MAX_MINE_EXPLORATION_DISTANCE} blocks and ${MAX_MINE_EXPLORATION_MS / 1000} seconds.`,
+        );
+      }
+    }
+    if (this.#targets.length === 0 && this.request.explore && this.#branchGoal === null && this.#branchFailure === null) {
       const feet = this.bot.entity.position.floored();
       this.#branchGoal = branchMiningGoal({ x: feet.x, y: feet.y, z: feet.z });
+      this.#explorationOrigin = this.bot.entity.position.clone();
+      this.#explorationStartedAtMs = Date.now();
     }
     // Measure the cache window from completed work. If a rich block refresh
     // itself takes longer than the interval, recording its start time makes it

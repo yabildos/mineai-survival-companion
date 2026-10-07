@@ -84,11 +84,15 @@ function productionDependencies(navigate: Navigate): UseContainerDependencies {
 }
 
 class OpenedContainer implements Disposable {
-  static async open(bot: Bot, block: ContainerBlock): Promise<OpenedContainer> {
+  static async open(bot: Bot, block: ContainerBlock, operation: UseContainerRequest["operation"]): Promise<OpenedContainer> {
     try {
       const window = await bot.openContainer(block);
       return new OpenedContainer(window, (slot) => bot.clickWindow(slot, 0, 0));
     } catch (cause) {
+      const fallback = bot.currentWindow;
+      if (operation === "inspect" && fallback && isContainerWindow(fallback)) {
+        return new OpenedContainer(fallback as ContainerWindow, (slot) => bot.clickWindow(slot, 0, 0));
+      }
       throw new UseContainerActionError(useContainerOutcomes.openFailed(cause), { cause });
     }
   }
@@ -267,8 +271,13 @@ class OpenedContainer implements Disposable {
   }
 
   [Symbol.dispose](): void {
-    this.window.close();
+    void this.window.close();
   }
+}
+
+function isContainerWindow(window: Bot["currentWindow"]): boolean {
+  if (!window) return false;
+  return typeof window.inventoryStart === "number" && window.inventoryStart > 0 && typeof window.containerItems === "function";
 }
 
 function target(bot: Bot, request: InspectRequest): InspectTarget;
@@ -493,7 +502,7 @@ export async function useContainer(
 
     const obstruction = chestOpeningObstruction(bot, block.name, position);
     if (obstruction) return { status: "failed", error: obstruction, target: targetValue };
-    using container = await OpenedContainer.open(bot, block);
+    using container = await OpenedContainer.open(bot, block, request.operation);
     const observeAndRemember = () => {
       const contents = container.contents();
       const observedAt = dependencies.now().toISOString();

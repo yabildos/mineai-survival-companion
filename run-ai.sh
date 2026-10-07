@@ -2,7 +2,16 @@
 set -euo pipefail
 
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-lan_port="${2:-${1:-1234}}"
+if [[ "${1:-}" == --bot ]]; then
+  lan_port="${2:-1234}"
+  session_goal=""
+elif [[ "${1:-}" =~ ^[0-9]+$ ]]; then
+  lan_port="$1"
+  session_goal="${MINECRAFT_AI_GOAL:-${*:2}}"
+else
+  lan_port="1234"
+  session_goal="${MINECRAFT_AI_GOAL:-$*}"
+fi
 if [[ ! "$lan_port" =~ ^[0-9]+$ ]] || (( 10#$lan_port < 1 || 10#$lan_port > 65535 )); then
   echo 'Неверный порт мира. По умолчанию используется 1234.' >&2
   exit 2
@@ -22,6 +31,12 @@ if [[ "${1:-}" == --bot ]]; then
     echo 'Зависимости бота не установлены: nix develop .#ai --command bun install --cwd ai/engine --frozen-lockfile --production' >&2
     exit 1
   fi
+  minecraft_version="${MINECRAFT_AI_VERSION:-1.21.4}"
+  if [[ ! "$minecraft_version" =~ ^[0-9]+(\.[0-9]+){1,2}$ ]]; then
+    echo 'MINECRAFT_AI_VERSION должен выглядеть как 1.21.4.' >&2
+    exit 2
+  fi
+  echo "MineAI подключается как Minecraft $minecraft_version к 127.0.0.1:$lan_port"
   cd "$project_dir/ai/engine"
   exec bwrap \
     --die-with-parent --new-session --unshare-ipc \
@@ -35,7 +50,7 @@ if [[ "${1:-}" == --bot ]]; then
     --setenv NODE_ENV production \
     "$(command -v bun)" src/server/host.ts \
       --minecraft-host 127.0.0.1 --minecraft-port "$lan_port" \
-      --username "$bot_name" --auth offline --version 1.21.1 \
+      --username "$bot_name" --auth offline --version "$minecraft_version" \
       --listen-host 127.0.0.1 --listen-port 25575 \
       --data-root "$project_dir/data/bot-data"
 fi
@@ -62,6 +77,9 @@ fi
 umask 077
 mkdir -p "$project_dir/data/home" "$project_dir/data/bot-data"
 bot_log="$project_dir/data/bot.log"
+if [[ -z "$session_goal" ]]; then
+  session_goal='будь универсальным survival-помощником рядом с игроком: защищай, носи ресурсы, добывай нужное, строй простые вещи, восстанавливайся после смерти и выполняй просьбы пользователя; не продолжай старые цели без прямой просьбы'
+fi
 setsid "$0" --bot "$lan_port" >"$bot_log" 2>&1 &
 bot_pid=$!
 cleanup() {
@@ -75,8 +93,9 @@ for ((attempt = 0; attempt < 120; attempt++)); do
   if curl --silent --fail --max-time 1 --output /dev/null http://127.0.0.1:25575/health; then
     cd "$project_dir"
     env -u OPENAI_API_KEY -u CODEX_API_KEY -u OPENAI_BASE_URL \
+      MINECRAFT_AI_GOAL="$session_goal" \
       codex --strict-config -m "$model" -c 'model_provider="openai"' \
-      'Играй в открытом мире Minecraft через MCP minecraft за MineAI. Сначала вызови view_status и прочитай ai/progress.md. Следуй AGENTS.md. Выполняй цель этапами, используй готовые действия на несколько предметов, опирайся на результаты действий и выводи только важные поля. Если лимит Codex исчерпан, остановись; не переключайся на платный API.'
+      "Играй в открытом мире Minecraft через MCP minecraft за MineAI. Текущая цель: $session_goal. Сначала вызови view_status, затем прочитай ai/playbook.md, ai/skills.md и активную верхнюю часть ai/progress.md. Не продолжай старые цели, если они не указаны в текущей цели. Работай коротким циклом: одна ближайшая цель, одно действие, дождаться результата, проверить, продолжить. Не перечисляй инструменты и не пиши длинные планы. Не повторяй один и тот же провал больше двух раз; меняй подход или запиши blocker. Используй готовые высокоуровневые действия и skill recipes, а маленькие inspect/control инструменты только для уточнения. Для движения за игроком используй follow_player; для охраны guard_player; для передачи предметов deliver_items; для ресурсов gather_resource; для базы/фермы/шахты waypoint; при застревании unstuck; при пространственной путанице scene_snapshot. Записывай в ai/progress.md только важные координаты, смерти, крупные успехи и blockers. Если лимит Codex исчерпан, остановись; не переключайся на платный API."
     exit $?
   fi
   if ! kill -0 "$bot_pid" 2>/dev/null; then

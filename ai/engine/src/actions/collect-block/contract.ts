@@ -20,6 +20,9 @@ export const COLLECT_BLOCK_DESCRIPTION =
   "Water beside or above a target is harmless; lava is closed with a carried block before the break, so collecting obsidian means carrying cobblestone, and a target that cannot be taken says why in numbers. " +
   "Obsidian is the one block the bot makes rather than finds: ask for it while carrying a water bucket and, with no obsidian loaded, the process walks to lava, pours, scoops the water back, and mines what formed. " +
   "Name the block to break, not the item wanted: cobblestone and cobbled_deepslate are the no-silk-touch drops of stone and deepslate, which are almost everywhere underground, while naturally placed cobblestone is structure-bound and most often the walls of a dungeon around a spawner. " +
+  "`logs` includes overworld logs and Nether stems; `wood` also includes wood/hyphae blocks; `mushroom_tree` includes mushroom stems and red/brown mushroom cap blocks. " +
+  "For trees, request the full expected block count rather than only two base logs; this tool stops at the requested inventory gain. " +
+  "Large ore requests are safety-gated by pickaxe durability so MineAI does not strand itself underground without a usable pickaxe. " +
   "For general collection tasks, prefer count greater than 1 without an exact x/y/z target; use exact coordinates only when that specific block matters.";
 export const MAX_COLLECT_BLOCKS = 32;
 export const NON_MINEABLE_FLUIDS = new Set(["water", "lava", "bubble_column"]);
@@ -81,6 +84,7 @@ export const outcomes = {
     `[DROP_RECOVERY_EXHAUSTED] Mined ${mined} blocks and collected ${collected} of the ${requested} requested; the rest were mined but never recovered, so collection stopped instead of mining indefinitely.`,
   inventoryFull: (totalSlots: number, itemNames: readonly string[]) =>
     `[INVENTORY_FULL] All ${totalSlots} inventory slots are occupied with no room in a stack of ${describeItems(itemNames)}; allow_full_inventory=false.`,
+  miningSafety: (reason: string) => `[MINING_SAFETY_STOP] ${reason}`,
   incomplete: "[COLLECTION_INCOMPLETE] Collection stopped before the requested inventory gain was observed.",
   progress: (reason: string, gained: number, requested: number, blocksBroken: number) =>
     `${reason} Broke ${blocksBroken} matching block${blocksBroken === 1 ? "" : "s"}; inventory gained ${gained}/${requested} requested items.`,
@@ -138,6 +142,8 @@ export interface CollectBlockRequest {
   selector: string;
   requested: number;
   exactTarget: Vec3 | null;
+  /** Internal bounded set used by composite actions such as felling one connected tree. */
+  exactTargets?: readonly Vec3[];
   scaffolding: boolean;
   allowFullInventory: boolean;
   onToolLoss: "stop" | "continue";

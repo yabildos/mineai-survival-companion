@@ -11,7 +11,7 @@ import {
   type MinecraftBotDataIdentity,
   type SqlBotDataOptions,
 } from "../bot-data/index.js";
-import { snapshotInventory } from "../bot-data/bot-status.js";
+import { observeEquipmentPackets, snapshotInventory } from "../bot-data/bot-status.js";
 import { enchantmentsOf } from "../world/enchantments.js";
 import type { SourceIdentity } from "../diagnostics/incident-recorder.js";
 import { createMinecraftRuntime, type MinecraftRuntime } from "../runtime/minecraft-runtime.js";
@@ -47,6 +47,7 @@ async function connectBot(configuration: HostOptions): Promise<ConnectedBot> {
     version: configuration.version,
     ...BOT_PHYSICS_OPTIONS,
   });
+  resources.defer(observeEquipmentPackets(bot));
   // Survival perception, navigation, and diagnostics each keep a permanent
   // respawn and physicsTick listener; the steady-state count sits just past
   // Node's default cap of ten, so raise it while keeping a finite ceiling
