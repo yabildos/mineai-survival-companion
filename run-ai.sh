@@ -19,7 +19,7 @@ fi
 
 if [[ "${1:-}" == --bot ]]; then
   if [[ "${MINECRAFT_AI_IN_SHELL:-}" != 1 ]]; then
-    exec nix --extra-experimental-features 'nix-command flakes' develop "path:$project_dir#ai" --command \
+    exec nix --extra-experimental-features 'nix-command flakes' develop "$project_dir#ai" --command \
       env MINECRAFT_AI_IN_SHELL=1 "$0" --bot "$lan_port"
   fi
   bot_name="${MINECRAFT_AI_BOT_NAME:-MineAI}"
