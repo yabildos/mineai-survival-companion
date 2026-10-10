@@ -95,7 +95,7 @@ for ((attempt = 0; attempt < 120; attempt++)); do
     env -u OPENAI_API_KEY -u CODEX_API_KEY -u OPENAI_BASE_URL \
       MINECRAFT_AI_GOAL="$session_goal" \
       codex --strict-config -m "$model" -c 'model_provider="openai"' \
-      "MineAI goal: $session_goal"
+      "MineAI goal: $session_goal. First call view_status, then read ai/current.md and ai/playbook.md. Use ai/progress.md only for specific needed history."
     exit $?
   fi
   if ! kill -0 "$bot_pid" 2>/dev/null; then

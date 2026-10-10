@@ -13,8 +13,8 @@ obvious.
 ## Operating loop
 
 1. Start with `view_status`.
-2. Read the active section at the top of `ai/progress.md` unless an old
-   coordinate or blocker is needed.
+2. Read `ai/current.md`. Use `ai/progress.md` only for a specific coordinate or
+   blocker that the current request needs.
 3. Choose one short milestone that can be completed now.
 4. Use the highest-level reliable tool for that milestone.
 5. Wait for the tool result before issuing another foreground action.
@@ -44,6 +44,16 @@ continue.
 - Do not wait passively unless waiting itself is the action being tested.
 - If navigation fails, inspect position and obstacles, then choose a nearby
   reachable waypoint or a different tool.
+- If a far `navigate` fails with no path, do not repeat it. Use
+  `scene_snapshot`, `get_pathfinder_status`, a nearer waypoint, or gather
+  scaffold blocks first.
+- If the target height has no usable footing, pick an observed supported
+  position nearby instead of forcing the same coordinate.
+- In the Nether, low health or repeated hostile reflexes override optional
+  hunting and exploration.
+- Before Nether travel, fortress hunting, long mining, or escort work, use
+  `loadout_manager`; refuse risky work if armor/tool durability, food or
+  scaffold blocks are insufficient.
 - If a container/window tool fails, close the window, inspect status, and switch
   to another supply path after two failures.
 - If an old scenario note conflicts with the user's latest goal, follow the

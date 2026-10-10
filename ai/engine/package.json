@@ -30,6 +30,7 @@
   "scripts": {
     "clean": "bun -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
     "build": "bun run clean && bun x --bun tsc -p tsconfig.build.json && bun -e \"require('node:fs').copyFileSync('src/bot-data/bot-data.sql', 'dist/bot-data/bot-data.sql')\"",
+    "audit:bot-data": "bun scripts/audit-bot-data.ts",
     "typecheck": "bun x --bun tsc -p tsconfig.build.json --noEmit",
     "test": "bun test tests",
     "verify": "bun run typecheck && bun test tests"
