@@ -67,14 +67,18 @@ function refused(code: string, error: string): Refusal { return { state: "refuse
 /** Durable execution rows are separate from the log of individual MCP calls. */
 export class ExecutionStore {
   constructor(private readonly data: SqlBotData, private readonly botId: string) {}
-  load(): RecordData[] {
+  /** Reads the latest shared execution snapshot without assuming its owner is this process. */
+  readAll(): RecordData[] {
     return this.data.read("SELECT record_json FROM action_executions WHERE bot_id = ? ORDER BY rowid", this.botId)
       .map((row) => {
-        // Earlier development records used a caller acknowledgement and receipt.
-        const { acknowledged, terminal, ...record } = JSON.parse(String(row.record_json));
-        return { ...record, resultRetrieved: record.resultRetrieved ?? acknowledged ?? false,
-          terminal: terminal ? { output: terminal.output } : null } as RecordData;
+        const { acknowledged, ...record } = JSON.parse(String(row.record_json));
+        return { ...record, resultRetrieved: record.resultRetrieved ?? acknowledged ?? false } as RecordData;
       });
+  }
+  load(): RecordData[] {
+    // Runtime restart recovery stays in AsyncActions' constructor; live refreshes
+    // must preserve nonterminal records owned by another runtime process.
+    return this.readAll();
   }
   write(records: readonly RecordData[]): void {
     this.data.transaction((db) => {
@@ -95,7 +99,7 @@ export class AsyncActions {
   constructor(
     readonly runner: ActionRunner,
     private readonly run: ActionRunner["run"],
-    private readonly store?: Pick<ExecutionStore, "load" | "write">,
+    private readonly store?: Pick<ExecutionStore, "load" | "write"> & Partial<Pick<ExecutionStore, "readAll">>,
   ) {
     for (const record of store?.load() ?? []) {
       if (!record.terminal) {
@@ -121,6 +125,7 @@ export class AsyncActions {
     let parsed: unknown;
     try { parsed = action.parse(input); }
     catch (error) { return refused("INVALID_ARGUMENTS", reason(error)); }
+    this.#refreshFromStore();
     const previous = this.#submissions.get(metadata.submission_id);
     if (previous) {
       return previous.record.action === action.name && isDeepStrictEqual(previous.record.arguments, parsed)
@@ -128,9 +133,10 @@ export class AsyncActions {
         : refused("SUBMISSION_CONFLICT", "This submission_id already identifies different action arguments.");
     }
     if (!this.runner.ownership().connected) return refused("RUNTIME_UNAVAILABLE", "The bot connection has ended.");
-    if (this.#active || this.runner.status().busy) return {
+    const remoteActive = [...this.#records.values()].find((item) => !item.record.terminal);
+    if (this.#active || remoteActive || this.runner.status().busy) return {
       ...refused("ACTION_BUSY", `No new action started; body owner: ${this.runner.ownership().current ?? "request settling"}. ${this.#active ? "Call wait_for_action with activeActionId to retrieve its result." : "Wait for physical ownership to become available."}`),
-      ...(this.#active ? { activeActionId: this.#active.record.actionId } : {}),
+      ...((this.#active ?? remoteActive) ? { activeActionId: (this.#active ?? remoteActive)!.record.actionId } : {}),
     };
     const owed = [...this.#records.values()].find((item) => !item.record.resultRetrieved);
     if (owed) return {
@@ -178,21 +184,23 @@ export class AsyncActions {
 
   async wait(actionId: string, timeoutMs: number, signal?: AbortSignal): Promise<WaitOutcome> {
     if (!Number.isInteger(timeoutMs) || timeoutMs < 0 || timeoutMs > 120000) return refused("INVALID_ARGUMENTS", "timeout_ms must be an integer from 0 to 120000.");
+    this.#refreshFromStore();
     const retained = this.#records.get(actionId);
     if (!retained) return refused("ACTION_NOT_FOUND", "No execution with this action ID exists for this bot.");
     signal?.throwIfAborted();
     const before = this.#live(retained);
-    if (!retained.record.terminal && timeoutMs > 0) {
-      await new Promise<void>((resolve, reject) => {
-        const cleanup = () => { clearTimeout(timer); signal?.removeEventListener("abort", abort); retained.listeners.delete(finish); };
-        const finish = () => { cleanup(); resolve(); };
-        const abort = () => { cleanup(); reject(signal?.reason); };
-        const timer = setTimeout(finish, timeoutMs);
-        signal?.addEventListener("abort", abort, { once: true });
-        retained.listeners.add(finish);
-        if (retained.record.terminal) finish();
-        if (signal?.aborted) abort();
-      });
+    const deadline = Date.now() + timeoutMs;
+    while (!retained.record.terminal && timeoutMs > 0 && Date.now() < deadline) {
+      signal?.throwIfAborted();
+      // MCP requests can land on a different server connection/process than the
+      // one executing the action. Poll the durable snapshot as well as the local
+      // settlement promise so a remote wait can observe and acknowledge it.
+      const remaining = Math.max(0, deadline - Date.now());
+      await Promise.race([
+        retained.settled,
+        new Promise<void>((resolve) => setTimeout(resolve, Math.min(250, remaining))),
+      ]);
+      this.#refreshFromStore();
     }
     signal?.throwIfAborted();
     const terminal = retained.record.terminal;
@@ -237,6 +245,27 @@ export class AsyncActions {
 
   #acceptance(record: RecordData): Acceptance {
     return { state: "accepted", actionId: record.actionId, action: record.action, admittedAt: record.admittedAt };
+  }
+  #refreshFromStore(): void {
+    const records = this.store?.readAll?.();
+    if (!records) return;
+    for (const record of records) {
+      const retained = this.#records.get(record.actionId);
+      if (!retained) {
+        const added = execution(record);
+        this.#records.set(record.actionId, added);
+        this.#submissions.set(record.submissionId, added);
+        continue;
+      }
+      // Never replace the live in-memory record for the action executing here.
+      if (retained === this.#active) continue;
+      retained.record = record;
+      if (record.terminal) {
+        retained.settle();
+        for (const listener of retained.listeners) listener();
+        retained.listeners.clear();
+      }
+    }
   }
   #live(retained: Execution): LiveProgress | null {
     const progress = this.runner.progress();
