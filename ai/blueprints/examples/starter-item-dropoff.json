@@ -1,0 +1,45 @@
+{
+  "schema": "mineai.blueprint.v1",
+  "name": "starter-item-dropoff",
+  "category": "storage",
+  "minecraft_version": "1.21.x",
+  "size": { "x": 3, "y": 2, "z": 3 },
+  "survival": {
+    "safe_for_bot": true,
+    "requires_entities": [],
+    "requires_water": false,
+    "notes": [
+      "A tiny dropoff point for early resource runs.",
+      "Bot can build the shell, then place/use chest if carried and reachable."
+    ]
+  },
+  "materials": {
+    "chest": 2,
+    "cobblestone": 9,
+    "torch": 1
+  },
+  "phases": [
+    {
+      "name": "pad",
+      "blocks": [
+        { "x": 0, "y": 0, "z": 0, "block_name": "cobblestone" },
+        { "x": 1, "y": 0, "z": 0, "block_name": "cobblestone" },
+        { "x": 2, "y": 0, "z": 0, "block_name": "cobblestone" },
+        { "x": 0, "y": 0, "z": 1, "block_name": "cobblestone" },
+        { "x": 1, "y": 0, "z": 1, "block_name": "cobblestone" },
+        { "x": 2, "y": 0, "z": 1, "block_name": "cobblestone" },
+        { "x": 0, "y": 0, "z": 2, "block_name": "cobblestone" },
+        { "x": 1, "y": 0, "z": 2, "block_name": "cobblestone" },
+        { "x": 2, "y": 0, "z": 2, "block_name": "cobblestone" }
+      ]
+    },
+    {
+      "name": "storage",
+      "blocks": [
+        { "x": 1, "y": 1, "z": 1, "block_name": "chest" },
+        { "x": 2, "y": 1, "z": 1, "block_name": "chest" },
+        { "x": 1, "y": 1, "z": 0, "block_name": "torch" }
+      ]
+    }
+  ]
+}

@@ -28,6 +28,7 @@ import {
   NAVIGATE_DESCRIPTION,
   navigateInputSchema,
   navigateResultSchema,
+  requiresGroundedArrival,
   type NavigationEvidence,
   type NavigateRequest,
   type NavigateResult,
@@ -384,6 +385,17 @@ function beginNavigate(
       return {
         status: "failed",
         error: navigateOutcomes.incomplete(evidence.remainingDistance, request.range),
+        navigation: evidence,
+      };
+    }
+    if (destination !== null && requiresGroundedArrival(
+      request.build,
+      standable(bot, asVec3(destination)),
+      bot.entity.onGround,
+    )) {
+      return {
+        status: "failed",
+        error: navigateOutcomes.unsupportedArrival(bot.entity.onGround, Reflect.get(bot.entity, "isInWater") === true),
         navigation: evidence,
       };
     }

@@ -12,15 +12,11 @@ obvious.
 
 ## Operating loop
 
-1. Start with `view_status`.
-2. Read `ai/current.md`. Use `ai/progress.md` only for a specific coordinate or
-   blocker that the current request needs.
-3. Choose one short milestone that can be completed now.
-4. Use the highest-level reliable tool for that milestone.
-5. Wait for the tool result before issuing another foreground action.
-6. If the result is unclear, use one cheap inspection tool, then continue.
-7. Record only major milestones, deaths, coordinates and blockers in
-   `ai/progress.md`.
+1. Start with `view_status` and inspect inventory before risky work.
+2. Choose one short milestone that advances the current request.
+3. Use the highest-level reliable tool for that milestone.
+4. Wait for the result before issuing another foreground action.
+5. If the result is unclear, use one focused inspection tool, then continue.
 
 Do not spend turns restating plans. Think briefly, act, inspect the result, and
 continue.
@@ -58,12 +54,6 @@ continue.
   to another supply path after two failures.
 - If an old scenario note conflicts with the user's latest goal, follow the
   latest goal.
-
-## Scenario Notes
-
-- Old progress may mention completed goals. Treat them as history unless the
-  current goal explicitly returns to that scenario.
-- `ai/progress.md` can be stale. Fresh `view_status` wins over old notes.
 
 ## Good behavior
 

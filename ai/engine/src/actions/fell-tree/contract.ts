@@ -7,7 +7,7 @@ export const FELL_TREE_DESCRIPTION =
   "Fell one nearby connected tree-like structure completely: overworld logs, Nether stems/hyphae, or huge mushroom stems/caps. Use this instead of collect_block when the user asks to chop a tree or mushroom tree.";
 
 export const fellTreeInputSchema = z.strictObject({
-  max_blocks: z.number().int().min(1).max(96).default(32),
+  max_blocks: z.number().int().min(1).max(256).default(128),
   include_mushroom_caps: z.boolean().default(true),
 });
 

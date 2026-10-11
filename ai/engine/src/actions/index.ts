@@ -16,6 +16,7 @@ import type { ForegroundCancellation } from "../session/action-runner.js";
 import type { CombatController } from "../survival/index.js";
 import { createDiscardedItems } from "../world/discarded-items.js";
 import type { Action } from "./action.js";
+import { validateActionCatalog } from "./catalog.js";
 import { createEnchantItemAction, createUseAnvilAction, createTradeVillagerAction, createUpgradeNetheriteAction } from "./advanced-workstations.js";
 import { createActivatePortalAction } from "./activate-portal/index.js";
 import { createAttackDragonPerchAction } from "./attack-dragon-perch/index.js";
@@ -36,6 +37,7 @@ import { createDropItemAction } from "./drop-item/index.js";
 import { createEatFoodAction } from "./eat-food/index.js";
 import { createEquipAction } from "./equip/index.js";
 import { createExploreFrontierAction } from "./explore-frontier/index.js";
+import { createFarmAssistantAction } from "./farm-assistant/index.js";
 import { createFellTreeAction } from "./fell-tree/index.js";
 import { createFollowPlayerAction } from "./follow-player/index.js";
 import { createGatherResourceAction } from "./gather-resource/index.js";
@@ -142,6 +144,7 @@ export function createActions(
     createDropItemAction(bot, navigation, discarded),
     createBarterAction(bot, navigation),
     createEatFoodAction(bot),
+    createFarmAssistantAction(bot, navigation, discarded),
     createEquipAction(bot),
     createFellTreeAction(bot, navigation, discarded),
     createFollowPlayerAction(bot, navigation, botData),
@@ -197,10 +200,12 @@ export function createActions(
   if (options.debugExecuteJavaScript) {
     actions.push(createDebugSetPathfinderTelemetryAction(navigation), createDebugExecuteJavaScriptAction(bot));
   }
+  validateActionCatalog(actions);
   return Object.freeze(actions);
 }
 
 export * from "./action.js";
+export * from "./catalog.js";
 export * from "./activate-block/index.js";
 export * from "./activate-entity/index.js";
 export * from "./activate-portal/index.js";
@@ -221,6 +226,7 @@ export * from "./destroy-end-crystal/index.js";
 export * from "./drop-item/index.js";
 export * from "./eat-food/index.js";
 export * from "./equip/index.js";
+export * from "./farm-assistant/index.js";
 export * from "./explore-frontier/index.js";
 export * from "./fell-tree/index.js";
 export * from "./follow-player/index.js";

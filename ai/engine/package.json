@@ -31,7 +31,6 @@
     "clean": "bun -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
     "build": "bun run clean && bun x --bun tsc -p tsconfig.build.json && bun -e \"require('node:fs').copyFileSync('src/bot-data/bot-data.sql', 'dist/bot-data/bot-data.sql')\"",
     "audit:bot-data": "bun scripts/audit-bot-data.ts",
-    "distill:build-mechanisms": "bun scripts/distill-build-mechanisms.ts",
     "typecheck": "bun x --bun tsc -p tsconfig.build.json --noEmit",
     "test": "bun test tests",
     "verify": "bun run typecheck && bun test tests"
@@ -47,6 +46,7 @@
     "prismarine-block": "^1.23.0",
     "prismarine-chat": "^1.13.0",
     "prismarine-item": "^1.18.0",
+    "prismarine-nbt": "^2.8.0",
     "vec3": "^0.1.10",
     "zod": "^4.4.3",
     "mineflayer": "github:aibengineering/mineflayer#9fa1140b90877a084efd988905df0c0eceaa78d0",

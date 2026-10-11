@@ -18,6 +18,17 @@ Use for any multi-step request, repeated job, or task that already failed once.
 6. Prefer executor-verified and observed memory over planner or user claims when
    deciding where to go or what has already been done.
 
+## Reflex First
+
+Use when health, hunger, hostiles, lava, fall risk, drowning, stuck navigation
+or open windows threaten the current task.
+
+1. Fix immediate survival before continuing the user task.
+2. Eat or equip defensive gear when status says it is needed.
+3. Use `guard_player` for nearby threats and `unstuck` for movement loops.
+4. Close failed windows after repeated container/crafting errors.
+5. Record a typed blocker when the same reflex cannot resolve the issue twice.
+
 ## Follow Or Come
 
 Use when the user says "follow", "come", "stay near", "help me", or gives no
@@ -85,9 +96,27 @@ Use near the player's base.
 2. Keep `dig: false` unless the user asked to remodel.
 3. Prefer `use_container inspect` before withdrawals.
 4. For storage work, use `use_container deposit/withdraw/organize`.
-5. For building, use `build_structure` or `place_block`; avoid random block
+5. For useful mechanisms, first check `ai/blueprints/README.md` and
+   `ai/blueprints/examples`; convert small known blueprints with
+   `blueprint:to-build`, then use `build_structure`.
+6. For ad-hoc building, use `build_structure` or `place_block`; avoid random block
    placement.
-6. If a container fails twice, close the window and switch tasks.
+7. If a container fails twice, close the window and switch tasks.
+
+## Farm Crops
+
+Use when the user asks to inspect or tend an existing crop plot.
+
+1. Confirm status and that the plot is nearby and loaded.
+2. Call `farm_assistant operation=inspect` to identify crop types and mature
+   blocks without changing the world.
+3. For a small batch, call `farm_assistant operation=harvest_replant` with a
+   bounded radius and crop count. It harvests mature wheat, carrots, potatoes,
+   and beetroot only when farmland and replant stock are present.
+4. Check `harvested` and `replanted` separately. Stop on a partial result; do
+   not manually break the same crop again.
+5. For new farmland, irrigation, or a larger farm, gather the approved
+   blueprint/materials first. The tool does not till soil or place water.
 
 ## Gear Changes
 

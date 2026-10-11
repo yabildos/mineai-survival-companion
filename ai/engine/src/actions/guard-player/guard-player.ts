@@ -73,19 +73,31 @@ async function run(
   }
   const guardedPlayer = usernameFor(bot, player.id) ?? request.username ?? null;
   let followed = false;
+  let followError: string | null = null;
   if (bot.entity.position.distanceTo(player.position) > request.follow_distance) {
     const feet = player.position.floored();
-    await navigate(
+    const follow = await navigate(
       bot,
       { x: feet.x, y: feet.y, z: feet.z, range: request.follow_distance, dig: false, scaffold: true, build: false },
       context,
       { createMovements, navigate: navigation.navigate },
     );
-    followed = true;
+    const distance = bot.entity.position.distanceTo(player.position);
+    followed = follow.status === "succeeded" && distance <= request.follow_distance + 0.5;
+    if (!followed) {
+      followError = `follow did not establish guard distance; distance ${round(distance)} > ${request.follow_distance}, navigation ${follow.status}${follow.status === "succeeded" ? "" : `: ${follow.error}`}`;
+    }
   }
 
   const threat = nearestThreat(bot, player.position, request.threat_radius);
   if (!threat) {
+    if (followError) {
+      return {
+        status: "partial",
+        error: `[GUARD_FOLLOW_NOT_VERIFIED] ${followError}`,
+        guard: { guardedPlayer, followed, threat: null, engaged: false, summary: followError },
+      };
+    }
     return {
       status: "succeeded",
       guard: { guardedPlayer, followed, threat: null, engaged: false, summary: "no common hostile threat loaded nearby" },
@@ -109,8 +121,9 @@ async function run(
       position: { x: round(threat.entity.position.x), y: round(threat.entity.position.y), z: round(threat.entity.position.z) },
     },
     engaged: hunt.status === "succeeded" || hunt.status === "partial",
-    summary: hunt.status === "succeeded" ? "threat engaged" : hunt.error,
+    summary: followError ?? (hunt.status === "succeeded" ? "threat engaged" : hunt.error),
   };
+  if (followError) return { status: "partial", error: `[GUARD_FOLLOW_NOT_VERIFIED] ${followError}`, guard: evidence };
   return hunt.status === "failed"
     ? { status: "partial", error: hunt.error, guard: evidence }
     : { status: "succeeded", guard: evidence };

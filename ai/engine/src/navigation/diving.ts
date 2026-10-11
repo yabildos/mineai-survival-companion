@@ -10,6 +10,16 @@ import { DIVE_BACKSTOP_TICKS, DIVE_RESERVE_TICKS, openWaterSurface, swimTravelTi
 import type { RoutePlan } from "./movements/movement.js";
 
 const BREATHING_STOP = "Planned breathing stop";
+
+export function breathingReady(airTicks: number | null, headBlockName: string | null): boolean {
+  if (airTicks === 300) return true;
+  return airTicks === null && ["air", "cave_air", "void_air"].includes(headBlockName ?? "");
+}
+
+function headBlockName(bot: Bot): string | null {
+  return bot.blockAt(bot.entity.position.offset(0, 1.62, 0))?.name ?? null;
+}
+
 interface DiveSession {
   readonly cancelled: AbortController;
   owned: boolean;
@@ -142,14 +152,16 @@ export class Diving {
         const returned = await navigate({ movements, goal: exactBlockGoal(surface), signal: options.signal,
           stopSignal: returnStop, timeoutMs: 15_000 });
         if (returned.status !== "completed") return returned;
-        for (let ticks = 0; (airSupplyTicks(this.bot) ?? 0) < 300 && ticks < 100; ticks++) {
+        for (let ticks = 0; !breathingReady(airSupplyTicks(this.bot), headBlockName(this.bot)) && ticks < 100; ticks++) {
           options.signal?.throwIfAborted();
           if (returnStop?.aborted) return { status: "stopped" as const, reason: "Request stopped while breathing", elapsedMs: Date.now() - started };
           this.bot.setControlState("jump", true);
           await waitForPhysicsTicks(this.bot, 1, lifetime);
         }
         this.bot.setControlState("jump", false);
-        if (airSupplyTicks(this.bot) !== 300) return { status: "stopped" as const, reason: "Full air was not observed at the breathing stop", elapsedMs: Date.now() - started };
+        if (!breathingReady(airSupplyTicks(this.bot), headBlockName(this.bot))) {
+          return { status: "stopped" as const, reason: "Neither full air nor breathable air at the head was observed at the breathing stop", elapsedMs: Date.now() - started };
+        }
         session.returning = false;
         session.stop = new AbortController();
         this.report("resumed");

@@ -5,8 +5,8 @@ import { createDiscardedItems, type DiscardedItems } from "../../world/discarded
 import { droppedItemName, pickupObservedItem } from "../../world/item-pickup.js";
 import { defineAction, type ActionContext } from "../action.js";
 import { collectBlock } from "../collect-block/collect-block.js";
+import { craftItem } from "../craft-item/craft-item.js";
 import { snapshotTools } from "../../world/tool-tiers.js";
-import { prepareIronAxeReserve } from "../gather-resource/gather-resource.js";
 import { inventoryCounts } from "../collect-block/collection-facts.js";
 import {
   FELL_TREE,
@@ -26,6 +26,58 @@ function treeBlock(name: string, includeCaps: boolean): boolean {
 
 function key(position: Vec3): string {
   return `${position.x},${position.y},${position.z}`;
+}
+
+const AXE_NAMES = ["wooden_axe", "stone_axe", "iron_axe", "diamond_axe", "netherite_axe"] as const;
+
+async function prepareFellingAxe(
+  bot: Bot,
+  navigation: NavigationRuntime,
+  discarded: DiscardedItems,
+  context: ActionContext,
+): Promise<string | null> {
+  if (bot.inventory.items().some((item) => AXE_NAMES.includes(item.name as (typeof AXE_NAMES)[number]))) return null;
+
+  const counts = inventoryCounts(bot);
+  const itemName = (counts.diamond ?? 0) >= 3
+    ? "diamond_axe"
+    : (counts.iron_ingot ?? 0) >= 3
+      ? "iron_axe"
+      : (counts.cobblestone ?? 0) >= 3
+        ? "stone_axe"
+        : "wooden_axe";
+  const carriedCount = (name: string) => inventoryCounts(bot)[name] ?? 0;
+  const tableId = bot.registry.blocksByName.crafting_table?.id;
+  const tableNearby = tableId !== undefined && bot.findBlock({ matching: tableId, maxDistance: 4 }) !== null;
+  const needsTable = !tableNearby && carriedCount("crafting_table") === 0;
+  const current = inventoryCounts(bot);
+  const plankEquivalent = Object.entries(current).reduce((total, [name, count]) => {
+    if (name.endsWith("_planks")) return total + count;
+    if (name.endsWith("_log") || name.endsWith("_wood") || name.endsWith("_hyphae") || name === "crimson_stem" || name === "warped_stem")
+      return total + count * 4;
+    return total;
+  }, 0);
+  const axePlanks = itemName === "wooden_axe" ? 5 : 2;
+  const planksNeeded = axePlanks + (needsTable ? 4 : 0);
+  const logsNeeded = Math.ceil(Math.max(0, planksNeeded - plankEquivalent) / 4);
+  if (logsNeeded > 0) {
+    const gathered = await collectBlock(bot, navigation, {
+      selector: "logs", requested: logsNeeded, exactTarget: null, scaffolding: false,
+      allowFullInventory: false, onToolLoss: "stop",
+    }, context, discarded);
+    if (gathered.status !== "succeeded") return `[TREE_TOOL_PREP] Could not gather ${logsNeeded} logs for ${itemName}: ${gathered.error}`;
+  }
+  if (needsTable) {
+    const table = await craftItem(bot, navigation, { items: [{ itemName: "crafting_table", count: 1 }] }, context);
+    if (table.status !== "succeeded" || carriedCount("crafting_table") < 1) {
+      return `[TREE_TOOL_PREP] Could not prepare a crafting table for ${itemName}: ${table.status === "succeeded" ? "item was not observed in inventory" : table.error}`;
+    }
+  }
+  const crafted = await craftItem(bot, navigation, { items: [{ itemName, count: 1 }] }, context);
+  if (crafted.status !== "succeeded" || !bot.inventory.items().some((item) => item.name === itemName)) {
+    return `[TREE_TOOL_PREP] Could not prepare ${itemName}: ${crafted.status === "succeeded" ? "item was not observed in inventory" : crafted.error}`;
+  }
+  return null;
 }
 
 const NEIGHBOURS = [
@@ -89,9 +141,9 @@ async function run(
   request: FellTreeRequest,
   context: ActionContext,
 ): Promise<FellTreeResult> {
-  const axeCount = () => bot.inventory.items().filter((item) => ["iron_axe", "diamond_axe", "netherite_axe"].includes(item.name))
+  const axeCount = () => bot.inventory.items().filter((item) => AXE_NAMES.includes(item.name as (typeof AXE_NAMES)[number]))
     .reduce((sum, item) => sum + item.count, 0);
-  const prepareError = await prepareIronAxeReserve(bot, navigation, discarded, context);
+  const prepareError = await prepareFellingAxe(bot, navigation, discarded, context);
   if (prepareError) {
     return { status: "failed", error: prepareError, tree: { found: 0, broken: 0, start: null, remaining: 0 } };
   }
@@ -114,8 +166,8 @@ async function run(
     while (remainingCells.length > 0) {
       context.signal?.throwIfAborted();
       const activeAxe = snapshotTools(bot).tools.find((tool) => tool.class === "axe");
-      if (!activeAxe?.item || !["iron", "diamond", "netherite"].includes(activeAxe.tier) || axeCount() < 2) {
-        const error = await prepareIronAxeReserve(bot, navigation, discarded, context);
+      if (!activeAxe?.item || activeAxe.tier === "none" || axeCount() < 1) {
+        const error = await prepareFellingAxe(bot, navigation, discarded, context);
         if (error) {
           return { status: broken > 0 ? "partial" : "failed", error, tree: { found: targets.length, broken, start: { x: seed.x, y: seed.y, z: seed.z }, remaining: targets.length - broken } };
         }

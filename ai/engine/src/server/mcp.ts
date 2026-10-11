@@ -11,6 +11,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { DEBUG_EXECUTE_JAVASCRIPT } from "../actions/debug-execute-javascript/contract.js";
 import type { Action, ActionOutput, ActionResult, RuntimeFailure } from "../actions/index.js";
+import { validateActionCatalog } from "../actions/catalog.js";
 import { VIEW_STATUS } from "../actions/view-status/contract.js";
 import type { ActionRequestInput, ActionResponseInput } from "../bot-data/action-call-log.js";
 import { notificationSummarySchema, type NotificationSummary } from "../bot-data/event-log.js";
@@ -171,6 +172,7 @@ function serverInstructions(runtime: ActionRuntime, username: string): string {
 
 /** Create one disposable MCP protocol session over the process-owned bot session. */
 export function createMinecraftMcpServer(runtime: ActionRuntime, username: string): McpServer {
+  validateActionCatalog(runtime.actions);
   // No `capabilities` here: registerTool declares the tools capability itself,
   // and declaring it by hand only restates what the first registration does.
   const server = new McpServer(

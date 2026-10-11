@@ -43,7 +43,9 @@ export async function prepareIronAxeReserve(
     return result.status === "succeeded" ? null : result.error;
   };
 
-  const missingAxes = Math.max(0, 2 - axes());
+  // A single axe is enough for a bounded woodcutting batch. Requiring an iron
+  // axe plus a spare made even small log requests recursively mine and smelt.
+  const missingAxes = Math.max(0, 1 - axes());
   if (missingAxes === 0) return null;
   const ironNeeded = missingAxes * 3;
   const currentIron = carried("iron_ingot") + carried("raw_iron");
@@ -92,7 +94,7 @@ export async function prepareIronAxeReserve(
     if (smelted.status !== "succeeded") return `[TREE_TOOL_PREP] Could not smelt iron: ${smelted.error}`;
   }
   const craftAxesError = await craft("iron_axe", missingAxes);
-  if (craftAxesError || axes() < 2) return `[TREE_AXE_RESERVE_REQUIRED] Could not make an iron axe plus spare: ${craftAxesError ?? "spare axe not verified"}`;
+  if (craftAxesError || axes() < 1) return `[TREE_AXE_REQUIRED] Could not make one iron axe: ${craftAxesError ?? "axe not verified"}`;
   return null;
 }
 
@@ -114,7 +116,7 @@ async function run(
       const axe = snapshotTools(bot).tools.find((tool) => tool.class === "axe");
       return !!axe?.item && ["iron", "diamond", "netherite"].includes(axe.tier);
     };
-    if (isWoodHarvest && (ironAxes() < 2 || !hasIronAxe())) {
+    if (isWoodHarvest && (ironAxes() < 1 || !hasIronAxe())) {
       const preparationError = await prepareIronAxeReserve(bot, navigation, discarded, context);
       if (preparationError) {
         return {

@@ -115,6 +115,10 @@ export type NavigationEvidence = z.output<typeof navigationEvidenceSchema>;
 export type NavigateResult = z.output<typeof navigateResultSchema>;
 export type NavigateOutput = ActionOutput<typeof NAVIGATE, NavigateResult>;
 
+export function requiresGroundedArrival(build: boolean, targetHasGroundSupport: boolean, onGround: boolean): boolean {
+  return !build && targetHasGroundSupport && !onGround;
+}
+
 export const navigateOutcomes = {
   toolTierLost: (reason: string) => reason,
   stopped: (reason: string) => `[NAVIGATION_STOPPED] Pathfinder stopped: ${reason}.`,
@@ -130,6 +134,8 @@ export const navigateOutcomes = {
     `[NAVIGATION_DIMENSION_CHANGED] Navigation started in ${from} but ended in ${to}.`,
   incomplete: (remaining: number, range: number) =>
     `[NAVIGATION_INCOMPLETE] Pathfinder completed but its final node remained ${remaining.toFixed(2)} blocks from a ${range}-block target range.`,
+  unsupportedArrival: (onGround: boolean, inWater: boolean) =>
+    `[NAVIGATION_ARRIVAL_UNSUPPORTED] Pathfinder reached the target radius without stable footing (onGround=${onGround}, inWater=${inWater}). Recheck the shore/feet cell and navigate to a confirmed supported position.`,
   executionFailed: (cause: unknown) =>
     `[NAVIGATION_FAILED] Pathfinder threw: ${cause instanceof Error ? cause.message : String(cause)}`,
 } as const;

@@ -195,7 +195,15 @@ function planNeededItem(
     if (isBetterCandidate(candidate, best)) best = candidate;
   }
 
-  return best;
+  if (best) return best;
+
+  // Some registry recipes form reversible cycles, such as wheat <-> hay_block.
+  // When no alternative can be planned without cycling, the item is simply a
+  // missing leaf for the current inventory, not a planner failure.
+  addCount(state.required, itemId, remaining);
+  addCount(state.missing, itemId, remaining);
+  sources.push({ kind: "missing", count: remaining });
+  return { state, item: { id: itemId, count, sources } };
 }
 
 function materials(bot: Bot, counts: ReadonlyMap<number, number>): CraftMaterial[] {

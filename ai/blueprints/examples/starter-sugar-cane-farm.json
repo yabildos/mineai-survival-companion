@@ -1,0 +1,48 @@
+{
+  "schema": "mineai.blueprint.v1",
+  "name": "starter-sugar-cane-farm",
+  "category": "farm",
+  "minecraft_version": "1.21.x",
+  "size": { "x": 5, "y": 3, "z": 4 },
+  "survival": {
+    "safe_for_bot": true,
+    "requires_entities": [],
+    "requires_water": true,
+    "notes": [
+      "Starter manual farm. Put water in the trench, plant sugar cane on dirt or sand.",
+      "Upgrade later with pistons, observers, hoppers and chests."
+    ]
+  },
+  "materials": {
+    "dirt": 5,
+    "water_bucket": 1,
+    "sugar_cane": 5,
+    "cobblestone": 4
+  },
+  "phases": [
+    {
+      "name": "soil-row",
+      "blocks": [
+        { "x": 0, "y": 0, "z": 1, "block_name": "dirt" },
+        { "x": 1, "y": 0, "z": 1, "block_name": "dirt" },
+        { "x": 2, "y": 0, "z": 1, "block_name": "dirt" },
+        { "x": 3, "y": 0, "z": 1, "block_name": "dirt" },
+        { "x": 4, "y": 0, "z": 1, "block_name": "dirt" }
+      ]
+    },
+    {
+      "name": "water-trench-and-edge",
+      "blocks": [
+        { "x": 0, "y": 0, "z": 0, "block_name": "air" },
+        { "x": 1, "y": 0, "z": 0, "block_name": "air" },
+        { "x": 2, "y": 0, "z": 0, "block_name": "air" },
+        { "x": 3, "y": 0, "z": 0, "block_name": "air" },
+        { "x": 4, "y": 0, "z": 0, "block_name": "air" },
+        { "x": -1, "y": 0, "z": 0, "block_name": "cobblestone" },
+        { "x": 5, "y": 0, "z": 0, "block_name": "cobblestone" },
+        { "x": -1, "y": 0, "z": 1, "block_name": "cobblestone" },
+        { "x": 5, "y": 0, "z": 1, "block_name": "cobblestone" }
+      ]
+    }
+  ]
+}

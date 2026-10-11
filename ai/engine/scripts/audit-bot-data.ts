@@ -7,7 +7,7 @@ const root = path.resolve(import.meta.dir, "../../..");
 const explicit = process.argv[2];
 
 function latestDatabase(): string {
-  if (explicit) return path.resolve(explicit);
+  if (explicit) return path.resolve(root, explicit);
   const proc = Bun.spawnSync({
     cmd: ["bash", "-lc", "find data/bot-data -type f \\( -name '*.sqlite' -o -name '*.db' -o -name '*.sqlite3' \\) -printf '%T@ %p\\n' | sort -nr | head -1 | cut -d' ' -f2-"],
     cwd: root,
@@ -26,6 +26,10 @@ function rows<T>(db: Database, sql: string): T[] {
 function scalar<T>(db: Database, sql: string, fallback: T): T {
   const row = db.query(sql).get() as Record<string, T> | null;
   return row ? Object.values(row)[0] ?? fallback : fallback;
+}
+
+function hasTable(name: string): boolean {
+  return db.query("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name) !== null;
 }
 
 function section(title: string): void {
@@ -62,12 +66,16 @@ bullets(rows<{
   FROM bot_status
 `).map((row) => `MineAI ${row.dimension} at ${row.xyz}, health ${row.health}/20, food ${row.food}/20, updated ${row.updated_at}.`));
 
-bullets(rows<{ username: string; dimension: string; xyz: string; seen_at: string }>(db, `
-  SELECT username, dimension, printf('%.1f %.1f %.1f', x, y, z) AS xyz, seen_at
-  FROM player_locations
-  ORDER BY seen_at DESC
-  LIMIT 5
-`).map((row) => `Player ${row.username} last seen in ${row.dimension} at ${row.xyz}, ${row.seen_at}.`));
+if (hasTable("player_locations")) {
+  bullets(rows<{ username: string; dimension: string; xyz: string; seen_at: string }>(db, `
+    SELECT username, dimension, printf('%.1f %.1f %.1f', x, y, z) AS xyz, seen_at
+    FROM player_locations
+    ORDER BY seen_at DESC
+    LIMIT 5
+  `).map((row) => `Player ${row.username} last seen in ${row.dimension} at ${row.xyz}, ${row.seen_at}.`));
+} else {
+  console.log("- Player location history is unavailable in this schema.");
+}
 
 section("Top Failure Patterns");
 bullets(rows<{ code: string; action_name: string; status: string; count: number }>(db, `
@@ -98,6 +106,14 @@ bullets(rows<{ code: string; action_name: string; status: string; count: number 
   ORDER BY count DESC
   LIMIT 12
 `).map((row) => `${row.code}: ${row.action_name} ${row.status} x${row.count}.`));
+if (hasTable("task_failures")) {
+  bullets(rows<{ failure_type: string; count: number }>(db, `
+    SELECT failure_type, count(*) AS count FROM task_failures
+    GROUP BY failure_type ORDER BY count DESC LIMIT 8
+  `).map((row) => `Task journal ${row.failure_type}: ${row.count}.`));
+} else {
+  console.log("- task_failures table absent in this historical schema; action response failures remain auditable.");
+}
 
 section("Deaths And Equipment");
 bullets(rows<{ dimension: string; xyz: string; observed_at: string; cause: string }>(db, `
@@ -139,8 +155,14 @@ const navStopped = scalar<number>(db, `
     AND json_extract(r.response_json,'$.content[0].text') LIKE '%[NAVIGATION_STOPPED]%'
 `, 0);
 const brokenGear = scalar<number>(db, "SELECT COUNT(*) FROM events WHERE event_type = 'equipment_broken'", 0);
-const status = rows<{ dimension: string; health: number }>(db, "SELECT dimension, health FROM bot_status LIMIT 1")[0];
-if (status?.dimension === "the_nether" && status.health < 14) recommendations.push("Start next session with recovery, not travel or hunting: Nether health is below 14.");
+const status = rows<{ dimension: string; health: number; updated_at: string }>(db,
+  "SELECT dimension, health, updated_at FROM bot_status LIMIT 1")[0];
+const statusAgeMinutes = status ? Math.max(0, Math.round((Date.now() - Date.parse(status.updated_at)) / 60_000)) : null;
+if (status && statusAgeMinutes !== null && statusAgeMinutes > 60) {
+  recommendations.push(`Stored vitals/position are ${Math.floor(statusAgeMinutes / 60)} hours old; treat them as history and call view_status before choosing any action.`);
+} else if (status?.dimension === "the_nether" && status.health < 14) {
+  recommendations.push("Fresh status is in the Nether below 14 HP; recover before travel or hunting.");
+}
 if (navStopped > 20) recommendations.push("After two no-path failures, inspect/support/scaffold or choose a closer waypoint instead of repeating navigate.");
 if (brokenGear > 10) recommendations.push("Use loadout_manager before combat/travel and refuse risky Nether work with low durability armor or no replacement.");
 if (unretrieved > 0 || nonterminal > 0) recommendations.push("Restart MineAI with the durable foreground refresh fix before continuing foreground work.");

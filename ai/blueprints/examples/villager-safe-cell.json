@@ -1,0 +1,59 @@
+{
+  "schema": "mineai.blueprint.v1",
+  "name": "villager-safe-cell",
+  "category": "villagers",
+  "minecraft_version": "1.21.x",
+  "size": { "x": 3, "y": 3, "z": 3 },
+  "survival": {
+    "safe_for_bot": true,
+    "requires_entities": ["villager"],
+    "requires_water": false,
+    "notes": [
+      "A simple temporary villager holding cell, not a breeder.",
+      "Move villagers manually or with existing world methods; do not trap the bot inside."
+    ]
+  },
+  "materials": {
+    "cobblestone": 24,
+    "oak_door": 1,
+    "torch": 1
+  },
+  "phases": [
+    {
+      "name": "floor-and-walls",
+      "blocks": [
+        { "x": 0, "y": 0, "z": 0, "block_name": "cobblestone" },
+        { "x": 1, "y": 0, "z": 0, "block_name": "cobblestone" },
+        { "x": 2, "y": 0, "z": 0, "block_name": "cobblestone" },
+        { "x": 0, "y": 0, "z": 1, "block_name": "cobblestone" },
+        { "x": 1, "y": 0, "z": 1, "block_name": "cobblestone" },
+        { "x": 2, "y": 0, "z": 1, "block_name": "cobblestone" },
+        { "x": 0, "y": 0, "z": 2, "block_name": "cobblestone" },
+        { "x": 1, "y": 0, "z": 2, "block_name": "cobblestone" },
+        { "x": 2, "y": 0, "z": 2, "block_name": "cobblestone" },
+        { "x": 0, "y": 1, "z": 0, "block_name": "cobblestone" },
+        { "x": 1, "y": 1, "z": 0, "block_name": "oak_door" },
+        { "x": 2, "y": 1, "z": 0, "block_name": "cobblestone" },
+        { "x": 0, "y": 1, "z": 1, "block_name": "cobblestone" },
+        { "x": 2, "y": 1, "z": 1, "block_name": "cobblestone" },
+        { "x": 0, "y": 1, "z": 2, "block_name": "cobblestone" },
+        { "x": 1, "y": 1, "z": 2, "block_name": "cobblestone" },
+        { "x": 2, "y": 1, "z": 2, "block_name": "cobblestone" }
+      ]
+    },
+    {
+      "name": "roof-and-light",
+      "blocks": [
+        { "x": 0, "y": 2, "z": 0, "block_name": "cobblestone" },
+        { "x": 1, "y": 2, "z": 0, "block_name": "cobblestone" },
+        { "x": 2, "y": 2, "z": 0, "block_name": "cobblestone" },
+        { "x": 0, "y": 2, "z": 1, "block_name": "cobblestone" },
+        { "x": 1, "y": 2, "z": 1, "block_name": "torch" },
+        { "x": 2, "y": 2, "z": 1, "block_name": "cobblestone" },
+        { "x": 0, "y": 2, "z": 2, "block_name": "cobblestone" },
+        { "x": 1, "y": 2, "z": 2, "block_name": "cobblestone" },
+        { "x": 2, "y": 2, "z": 2, "block_name": "cobblestone" }
+      ]
+    }
+  ]
+}
