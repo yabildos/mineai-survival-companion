@@ -2,7 +2,7 @@
 
 MineAI is a single-player survival companion for Minecraft Java. It joins a world as an ordinary player and helps with the user's current task: exploration, gathering, crafting, farming, combat, carrying items, and practical builds. It does not require a Minecraft mod and does not use creative mode, operator commands, inventory injection, or save-file edits.
 
-The MCP runtime is based on [Mine AI MCP](https://github.com/aibengineering/mine-ai-mcp), distributed under MIT; its license and upstream commit are preserved in `ai/engine/LICENSE` and `ai/engine/UPSTREAM.txt`. Project-specific files do not claim a blanket license.
+The MCP runtime is based on [Mine AI MCP](https://github.com/aibengineering/mine-ai-mcp). See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for upstream attribution, dependency sources, and the licensing status of project-specific files. The upstream MIT license is included in `ai/engine/LICENSE`; its source revision is recorded in `ai/engine/UPSTREAM.txt`.
 
 ## Requirements
 
@@ -78,4 +78,4 @@ The bot only observes loaded world data available through its normal game connec
 
 ## License And Attribution
 
-MineAI includes and modifies the MIT-licensed Mine AI MCP engine. Preserve the included upstream license and commit attribution when redistributing that engine. Other project-specific material is published without an additional license grant unless a file says otherwise.
+MineAI includes and modifies the MIT-licensed Mine AI MCP engine. Preserve its license and attribution when redistributing that engine. License and provenance details for the engine, pinned dependencies, and project-specific assets are recorded in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md). No blanket license grant is made for project-specific material unless a file says otherwise.
