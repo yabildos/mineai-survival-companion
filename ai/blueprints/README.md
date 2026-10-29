@@ -1,9 +1,9 @@
-# MineAI Blueprints
+# MineAI Blueprint Examples
 
 This folder contains a few small, project-authored examples for the public
 `build_structure` tool.
 
-## Current Rules
+## Safe use
 
 - Coordinates are relative to a user-selected origin.
 - Inspect the build area and materials before placing blocks.
