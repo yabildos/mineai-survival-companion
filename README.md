@@ -73,8 +73,15 @@ Runtime databases, logs, and the isolated home directory are kept under `data/` 
 - `ai/engine/src/world/`: Minecraft rules and inventory facts.
 - `ai/engine/src/bot-data/`: world-scoped notes and observations.
 - `ai/playbook.md`, `ai/skills.md`: concise operating rules and task recipes.
+- `ai/blueprints/examples/`: small, project-authored structure examples. See
+  [`ai/blueprints/README.md`](ai/blueprints/README.md) for coordinate and
+  placement rules.
 
 The bot only observes loaded world data available through its normal game connection. It cannot inspect unexplored chunks or guarantee perfect autonomous play. Destructive actions should be bounded and verified in-world.
+
+Blueprint examples are references, not ready-made plans for every location.
+Check the build area, available materials, and requested footprint before
+placing blocks, then verify the result in the game world.
 
 ## License And Attribution
 
